@@ -17,12 +17,6 @@
       "rev": "b51e8631ed28d3cc917c491dd47cd6c3ff652edc"
     }
   },
-  "lib/solady": {
-    "tag": {
-      "name": "v0.1.26",
-      "rev": "acd959aa4bd04720d640bf4e6a5c71037510cc4b"
-    }
-  },
   "lib/solarray": {
     "rev": "58f176f1fc4f7326f17824be2de40a81fe9376b0"
   }
