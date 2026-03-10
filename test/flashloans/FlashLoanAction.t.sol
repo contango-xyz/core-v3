@@ -1,0 +1,936 @@
+//SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.20;
+
+import { BaseTest } from "../BaseTest.t.sol";
+import { FlashLoanProvider } from "../FlashLoanProvider.t.sol";
+
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC7579Execution } from "@openzeppelin/contracts/interfaces/draft-IERC7579.sol";
+import { Solarray } from "solarray/Solarray.sol";
+
+import { Action, PackedAction } from "../../src/types/Action.sol";
+import { ActionLib } from "../ActionLib.sol";
+import { ERC1271Executor } from "../../src/modules/ERC1271Executor.sol";
+import { PreSignedValidator } from "../../src/modules/PreSignedValidator.sol";
+
+import { FlashLoanAction } from "../../src/flashloan/FlashLoanAction.sol";
+import { TokenAction } from "../../src/actions/TokenAction.sol";
+import { IERC7399 } from "../../src/flashloan/dependencies/IERC7399.sol";
+import { IERC3156FlashLender } from "../../src/flashloan/dependencies/IERC3156.sol";
+import { IPoolAddressesProvider } from "../../src/moneymarkets/aave/dependencies/IPoolAddressesProvider.sol";
+import { IFlashLoaner } from "../../src/flashloan/dependencies/Balancer.sol";
+import { IMorpho } from "../../src/moneymarkets/morpho/dependencies/IMorpho.sol";
+import { IUniswapV3Pool } from "../../src/flashloan/dependencies/UniswapV3.sol";
+import { IAlgebraPool } from "../../src/dependencies/dex/Algebra.sol";
+import { ISolidlyPool } from "../../src/flashloan/dependencies/Solidly.sol";
+import { IEulerVault } from "../../src/moneymarkets/euler/dependencies/IEulerVault.sol";
+import { IPendleMarketV3 } from "../../src/dependencies/dex/Pendle.sol";
+
+contract FlashLoanActionTest is BaseTest {
+
+    using ActionLib for *;
+    using Solarray for *;
+
+    IERC20 internal weth = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 internal dai = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    IERC20 internal usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+
+    address internal owner;
+    address internal account;
+
+    Action[] internal actions;
+
+    function setUp() public override {
+        vm.createSelectFork("mainnet", 22_895_431);
+        super.setUp();
+
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+    }
+
+    function test_FlashLoan7399() public {
+        address balancer = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
+        IERC7399 balancerProvider = IERC7399(0x9E092cb431e5F1aa70e47e052773711d2Ba4917E);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (weth, 1e18, balancer))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanERC7399,
+                        (
+                            balancerProvider,
+                            weth,
+                            1e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanERC3156() public {
+        IERC3156FlashLender makerFlash = IERC3156FlashLender(0x60744434d6339a6B27d73d9Eda62b6F66a0a04FA);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100e18, address(flashLoanAction)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanERC3156,
+                        (
+                            makerFlash,
+                            dai,
+                            100e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanAave() public {
+        IPoolAddressesProvider pap = IPoolAddressesProvider(0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e);
+        deal(address(dai), account, 0.05e18); // 0.05 DAI for fees
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100.05e18, address(flashLoanAction)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanAave,
+                        (
+                            pap.getPool(),
+                            dai,
+                            100e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanBalancer() public {
+        IFlashLoaner balancer = IFlashLoaner(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100e18, address(balancer)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanBalancer,
+                        (
+                            balancer,
+                            dai,
+                            100e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanMorpho() public {
+        IMorpho morpho = IMorpho(0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100e18, address(flashLoanAction)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanMorpho,
+                        (
+                            morpho,
+                            dai,
+                            100e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanUniswapV3_Token0() public {
+        IUniswapV3Pool pool = IUniswapV3Pool(0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168);
+        deal(address(dai), account, 0.01e18); // 0.01 DAI for fees
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100.01e18, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanUniswapV3,
+                        (
+                            pool,
+                            dai,
+                            100e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanUniswapV3_Token1() public {
+        IUniswapV3Pool pool = IUniswapV3Pool(0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168);
+        deal(address(usdc), account, 0.01e6); // 0.01 USDC for fees
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 100.01e6, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanUniswapV3,
+                        (
+                            pool,
+                            usdc,
+                            100e6,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanAlgebra_Token0() public {
+        vm.createSelectFork("arbitrum", 356_560_102);
+        super.setUp();
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+
+        IAlgebraPool pool = IAlgebraPool(0x45FaE8D0D2acE73544baab452f9020925AfCCC75);
+        usdc = IERC20(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
+
+        deal(address(usdc), account, 0.01e6); // 0.01 USDC for fees
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 100.01e6, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanAlgebra,
+                        (
+                            pool,
+                            usdc,
+                            100e6,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanAlgebra_Token1() public {
+        vm.createSelectFork("arbitrum", 356_560_102);
+        super.setUp();
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+
+        IAlgebraPool pool = IAlgebraPool(0x45FaE8D0D2acE73544baab452f9020925AfCCC75);
+        dai = IERC20(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
+
+        deal(address(dai), account, 0.01e18); // 0.01 DAI for fees
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100.01e18, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanAlgebra,
+                        (
+                            pool,
+                            dai,
+                            100e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanSolidly_Token0() public {
+        vm.createSelectFork("base", 32_722_398);
+        super.setUp();
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+
+        ISolidlyPool pool = ISolidlyPool(0x67b00B46FA4f4F24c03855c5C8013C0B938B3eEc);
+        dai = IERC20(0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb);
+
+        deal(address(dai), account, 0.050025012506253126e18); // 0.050025012506253126 DAI for fees
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100.050025012506253126e18, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanSolidly,
+                        (
+                            pool,
+                            dai,
+                            100e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanSolidly_Token1() public {
+        vm.createSelectFork("base", 32_722_398);
+        super.setUp();
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+
+        ISolidlyPool pool = ISolidlyPool(0x67b00B46FA4f4F24c03855c5C8013C0B938B3eEc);
+        usdc = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
+
+        deal(address(usdc), account, 0.050025e6); // 0.050025 USDC for fees
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 100.050025e6, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanSolidly,
+                        (
+                            pool,
+                            usdc,
+                            100e6,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoanEuler() public {
+        IEulerVault vault = IEulerVault(0xe0a80d35bB6618CBA260120b279d357978c42BCE);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 100e6, address(vault)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoanEuler,
+                        (
+                            vault,
+                            usdc,
+                            100e6,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoansAave() public {
+        IPoolAddressesProvider pap = IPoolAddressesProvider(0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e);
+        deal(address(dai), account, 0.05e18); // 0.05 DAI for fees
+        deal(address(usdc), account, 0.05e6); // 0.05 USDC for fees
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100.05e18, address(flashLoanAction)))));
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 100.05e6, address(flashLoanAction)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoansAave,
+                        (
+                            pap.getPool(),
+                            toArray(dai, usdc),
+                            Solarray.uint256s(100e18, 100e6),
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashLoansBalancer() public {
+        IFlashLoaner balancer = IFlashLoaner(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 100e18, address(balancer)))));
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 100e6, address(balancer)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashLoansBalancer,
+                        (
+                            balancer,
+                            toArray(dai, usdc),
+                            Solarray.uint256s(100e18, 100e6),
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_FlashSwapUniswapV3_Token0Token1() public {
+        IUniswapV3Pool pool = IUniswapV3Pool(0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168);
+        deal(address(dai), account, 1000e18);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 1000e18, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashSwapUniswapV3,
+                        (
+                            pool,
+                            dai,
+                            1000e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+
+        assertEqDecimal(dai.balanceOf(account), 0, 18, "DAI balance should be 0");
+        assertEqDecimal(usdc.balanceOf(account), 999.932481e6, 6, "USDC balance should be 999.932481");
+    }
+
+    function test_FlashSwapUniswapV3_Token1Token0() public {
+        IUniswapV3Pool pool = IUniswapV3Pool(0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168);
+        deal(address(usdc), account, 1000e6);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 1000e6, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashSwapUniswapV3,
+                        (
+                            pool,
+                            usdc,
+                            1000e6,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+
+        assertEqDecimal(usdc.balanceOf(account), 0, 6, "USDC balance should be 0");
+        assertEqDecimal(dai.balanceOf(account), 999.867512789789429528e18, 18, "DAI balance should be 999.867512789789429528");
+    }
+
+    function test_FlashSwapPendle_PtForSy() public {
+        IERC20 PTsUSDe31JUL2025 = IERC20(0x3b3fB9C57858EF816833dC91565EFcd85D96f634);
+        IERC20 SY = IERC20(0xF541AA4d6f29ec2423A0D306dBc677021A02DBC0);
+        IPendleMarketV3 market = IPendleMarketV3(0x4339Ffe2B7592Dc783ed13cCE310531aB366dEac);
+
+        deal(address(PTsUSDe31JUL2025), account, 1000e18);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (PTsUSDe31JUL2025, 1000e18, address(market)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashSwapPendle,
+                        (
+                            market,
+                            1000e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+
+        assertEqDecimal(PTsUSDe31JUL2025.balanceOf(account), 0, 18, "PTsUSDe31JUL2025 balance should be 0");
+        assertEqDecimal(SY.balanceOf(account), 842.247516568373324077e18, 18, "SY balance should be 842.247516568373324077");
+    }
+
+    function test_FlashSwapAlgebra_Token0Token1() public {
+        vm.createSelectFork("arbitrum", 356_560_102);
+        super.setUp();
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+
+        IAlgebraPool pool = IAlgebraPool(0x45FaE8D0D2acE73544baab452f9020925AfCCC75);
+        usdc = IERC20(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
+        dai = IERC20(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
+
+        deal(address(usdc), account, 1000e6);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 1000e6, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashSwapAlgebra,
+                        (
+                            pool,
+                            usdc,
+                            1000e6,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+
+        assertEqDecimal(usdc.balanceOf(account), 0, 6, "USDC balance should be 0");
+        assertEqDecimal(dai.balanceOf(account), 1000.025643165479704947e18, 18, "DAI balance should be 1000.025643165479704947");
+    }
+
+    function test_FlashSwapAlgebra_Token1() public {
+        vm.createSelectFork("arbitrum", 356_560_102);
+        super.setUp();
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+
+        IAlgebraPool pool = IAlgebraPool(0x45FaE8D0D2acE73544baab452f9020925AfCCC75);
+        usdc = IERC20(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
+        dai = IERC20(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
+
+        deal(address(dai), account, 1000e18);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 1000e18, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashSwapAlgebra,
+                        (
+                            pool,
+                            dai,
+                            1000e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+
+        assertEqDecimal(dai.balanceOf(account), 0, 18, "DAI balance should be 0");
+        assertEqDecimal(usdc.balanceOf(account), 999.870828e6, 6, "USDC balance should be 999.870828");
+    }
+
+    function test_FlashSwapSolidly_Token0Token1() public {
+        vm.createSelectFork("base", 32_722_398);
+        super.setUp();
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+
+        ISolidlyPool pool = ISolidlyPool(0x67b00B46FA4f4F24c03855c5C8013C0B938B3eEc);
+        dai = IERC20(0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb);
+        usdc = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
+
+        deal(address(dai), account, 1000e18);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (dai, 1000e18, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashSwapSolidly,
+                        (
+                            pool,
+                            dai,
+                            1000e18,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+
+        assertEqDecimal(dai.balanceOf(account), 0, 18, "DAI balance should be 0");
+        assertEqDecimal(usdc.balanceOf(account), 996.190803e6, 6, "USDC balance should be 996.190803");
+    }
+
+    function test_FlashSwapSolidly_Token1Token0() public {
+        vm.createSelectFork("base", 32_722_398);
+        super.setUp();
+        owner = makeAddr("owner");
+        account = newAccount(owner, "account");
+
+        ISolidlyPool pool = ISolidlyPool(0x67b00B46FA4f4F24c03855c5C8013C0B938B3eEc);
+        usdc = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
+        dai = IERC20(0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb);
+
+        deal(address(usdc), account, 1000e6);
+
+        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (usdc, 1000e6, address(pool)))));
+
+        PackedAction[] memory packedCalls = actions.pack();
+        uint256 innerNonce = erc1271Nonce[block.chainid]++;
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(account), abi.encode(packedCalls), innerNonce);
+        bytes memory signature = abi.encodePacked(preSignedValidator);
+
+        delete actions;
+        actions.push(address(preSignedValidator).action(abi.encodeCall(PreSignedValidator.approveHash, (digest, false))));
+        actions.push(
+            address(flashLoanAction)
+                .action(
+                    abi.encodeCall(
+                        FlashLoanAction.flashSwapSolidly,
+                        (
+                            pool,
+                            usdc,
+                            1000e6,
+                            abi.encodePacked(
+                                erc1271Executor,
+                                abi.encodeCall(
+                                    ERC1271Executor.executeActions, (IERC7579Execution(account), packedCalls, signature, innerNonce)
+                                )
+                            ),
+                            account
+                        )
+                    )
+                )
+        );
+
+        vm.prank(owner);
+        ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+
+        assertEqDecimal(usdc.balanceOf(account), 0, 6, "USDC balance should be 0");
+        assertEqDecimal(dai.balanceOf(account), 1000.052568369251875124e18, 18, "DAI balance should be 1000.052568369251875124");
+    }
+
+}
+
+function toArray(IERC20 a, IERC20 b) pure returns (IERC20[] memory arr) {
+    arr = new IERC20[](2);
+    arr[0] = a;
+    arr[1] = b;
+}

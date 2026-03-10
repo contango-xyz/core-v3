@@ -1,0 +1,6 @@
+forge-std/=lib/forge-std/src/
+@openzeppelin/=lib/openzeppelin-contracts/
+transient-bytes/=lib/transient-bytes/src/
+solarray/=lib/solarray/src/
+solady/=lib/solady/src/
+@prb/math/=lib/prb-math/src/

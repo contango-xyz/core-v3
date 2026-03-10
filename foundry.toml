@@ -1,0 +1,76 @@
+[profile.default]
+cache = true
+threads = 0
+verbosity = 2
+solc = "0.8.34"
+evm_version = "osaka"
+optimizer = true
+optimizer_runs = 100000
+deny = "warnings"
+# Configures the permissions of cheat codes that touch the file system
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+# Remove metadata from bytecode to get deterministic compiled bytecode across different operating systems
+bytecode_hash = "none"
+cbor_metadata = false
+ignored_warnings_from = ["lib/**/*.sol"]
+
+[profile.dev]
+show_progress = true
+optimizer = false
+deny = "never"
+
+[rpc_endpoints]
+arbitrum = "${ARBITRUM_URL}"
+optimism = "${OPTIMISM_URL}"
+mainnet = "${MAINNET_URL}"
+base = "${BASE_URL}"
+
+
+[fmt]
+# Maximum line length where formatter will try to wrap the line
+line_length = 140
+# Number of spaces per indentation level
+tab_width = 4
+# Print spaces between brackets
+bracket_spacing = true
+# Style of uint/int256 types
+int_types = "long"
+# Write function attributes multiline first
+multiline_func_header = "attributes_first"
+# Style of quotation marks
+quote_style = "double"
+# Style of underscores in number literals
+number_underscore = "thousands"
+# Prefer single line block when possible
+single_line_statement_blocks = "single"
+# Add new line at start and end of contract declarations
+contract_new_lines = true
+
+
+[invariant]
+# The number of runs that must execute for each invariant test group
+runs = 25
+# The number of calls executed to attempt to break invariants in one run
+depth = 100
+# Fails the invariant fuzzing if a revert occurs
+fail_on_revert = true
+# Allows overriding an unsafe external call when running invariant tests. eg. reentrancy checks
+call_override = false
+# The weight of the dictionary
+dictionary_weight = 80
+# The flag indicating whether to include values from storage
+include_storage = true
+# The flag indicating whether to include push bytes values
+include_push_bytes = true
+
+[lint]
+ignore = [
+    "lib/**/*.sol",
+    "**/dependencies/**/*.sol",
+    "test/**/*.sol",
+    "script/**/*.sol",
+]
+mixed_case_exceptions = ["ERC", "EIP", "URI"]
+exclude_lints = ["asm-keccak256", "pascal-case-struct"]
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

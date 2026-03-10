@@ -1,0 +1,128 @@
+// // SPDX-License-Identifier: MIT
+// pragma solidity ^0.8.19;
+
+// import { BaseTest } from "../../BaseTest.t.sol";
+
+// import { ActionExecutor, ActionExecutorLib } from "../../../src/actions/execution/ActionExecutor.sol";
+// import { Solarray } from "solarray/Solarray.sol";
+
+// contract ActionExecutorTest is BaseTest {
+
+//     using ActionExecutorLib for *;
+
+//     address internal enabledAction;
+//     address internal disabledAction;
+
+//     function setUp() public override {
+//        vm.createSelectFork("mainnet", 22895431);
+//         super.setUp();
+
+//         enabledAction = _deployAction(type(MockAction).creationCode, "");
+//         disabledAction = address(new MockAction());
+//     }
+
+//     function test_ExecuteAction_Call() public {
+//         bytes memory data = abi.encodeCall(MockAction.foo, (1, "bar"));
+//         ActionExecutor.ActionCall memory action = address(enabledAction).action(data);
+
+//         vm.expectCall(enabledAction, data);
+
+//         (uint256 a, string memory b) = abi.decode(actionExecutor.executeSingle(action), (uint256, string));
+//         assertEq(a, 11);
+//         assertEq(b, "foobar");
+//     }
+
+//     function test_ExecuteAction_DelegateCall() public {
+//         bytes memory data = abi.encodeCall(MockAction.foo, (1, "bar"));
+
+//         ActionExecutor.ActionCall memory action = address(enabledAction).delegateAction(data);
+
+//         vm.expectCall(enabledAction, data);
+
+//         (uint256 a, string memory b) = abi.decode(actionExecutor.executeSingle(action), (uint256, string));
+//         // Being a delegate call means we don't have access to the state of the contract
+//         assertEq(a, 1);
+//         assertEq(b, "bar");
+//     }
+
+//     // function test_ExecuteAction_RevertWhen_ActionNotEnabled() public {
+//     //     bytes memory data = abi.encodeCall(MockAction.foo, (1, "bar"));
+
+//     //     ActionExecutor.ActionCall memory action =
+//     //         ActionExecutor.ActionCall({ target: disabledAction, data: data, value: 0, operation: ActionExecutor.Operation.Call });
+
+//     //     vm.expectRevert(abi.encodeWithSelector(ActionExecutor.ActionNotEnabled.selector, disabledAction));
+//     //     actionExecutor.executeSingle(action);
+//     // }
+
+//     function test_ExecuteAction_RevertWhen_DelegateCallWithValue() public {
+//         bytes memory data = abi.encodeCall(MockAction.foo, (1, "bar"));
+
+//         ActionExecutor.ActionCall memory action = ActionExecutor.ActionCall({
+//             target: enabledAction,
+//             data: data,
+//             value: 1 ether,
+//             operation: ActionExecutor.Operation.DelegateCall,
+//             allowFailure: false
+//         });
+
+//         vm.expectRevert(ActionExecutor.DelegateCallWithValue.selector);
+//         actionExecutor.executeSingle(action);
+//     }
+
+//     function test_ExecuteBatch() public {
+//         bytes memory data1 = abi.encodeCall(MockAction.foo, (1, "bar"));
+//         bytes memory data2 = abi.encodeCall(MockAction.foo, (2, "baz"));
+
+//         ActionExecutor.ActionCall[] memory actions = new ActionExecutor.ActionCall[](2);
+//         actions[0] = address(enabledAction).action(data1);
+//         actions[1] = address(enabledAction).action(data2);
+
+//         vm.expectCall(enabledAction, data1);
+//         vm.expectCall(enabledAction, data2);
+
+//         bytes[] memory results = actionExecutor.executeBatch(actions);
+
+//         (uint256 a1, string memory b1) = abi.decode(results[0], (uint256, string));
+//         assertEq(a1, 11);
+//         assertEq(b1, "foobar");
+
+//         (uint256 a2, string memory b2) = abi.decode(results[1], (uint256, string));
+//         assertEq(a2, 12);
+//         assertEq(b2, "foobaz");
+//     }
+
+//     function test_ExecuteBatch_MixedOperations() public {
+//         bytes memory data1 = abi.encodeCall(MockAction.foo, (1, "bar"));
+//         bytes memory data2 = abi.encodeCall(MockAction.foo, (2, "baz"));
+
+//         ActionExecutor.ActionCall[] memory actions = new ActionExecutor.ActionCall[](2);
+//         actions[0] = address(enabledAction).action(data1);
+//         actions[1] = address(enabledAction).delegateAction(data2);
+
+//         vm.expectCall(enabledAction, data1);
+//         vm.expectCall(enabledAction, data2);
+
+//         bytes[] memory results = actionExecutor.executeBatch(actions);
+
+//         (uint256 a1, string memory b1) = abi.decode(results[0], (uint256, string));
+//         assertEq(a1, 11);
+//         assertEq(b1, "foobar");
+
+//         (uint256 a2, string memory b2) = abi.decode(results[1], (uint256, string));
+//         assertEq(a2, 2); // Delegate call doesn't have access to target's state
+//         assertEq(b2, "baz");
+//     }
+
+// }
+
+// contract MockAction {
+
+//     uint256 public a = 10;
+//     string public b = "foo";
+
+//     function foo(uint256 _a, string memory _b) external view returns (uint256, string memory) {
+//         return (a + _a, string.concat(b, _b));
+//     }
+
+// }
