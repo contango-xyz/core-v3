@@ -1,12 +1,15 @@
 //SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.28;
 
+import { Vm } from "forge-std/Vm.sol";
+
 import {
     MODULE_TYPE_HOOK,
     MODULE_TYPE_VALIDATOR,
     MODULE_TYPE_EXECUTOR,
     MODULE_TYPE_FALLBACK
 } from "@openzeppelin/contracts/interfaces/draft-IERC7579.sol";
+import { AccountERC7579 } from "@openzeppelin/contracts/account/extensions/draft-AccountERC7579.sol";
 import { Solarray } from "solarray/Solarray.sol";
 
 import { ISafeProxyFactory } from "../src/dependencies/safe/ISafeProxyFactory.sol";
@@ -49,12 +52,15 @@ contract AccountFactory {
 
     enum WalletType {
         SAFE,
-        NEXUS
+        NEXUS,
+        OZ
     }
 
     event NewContangoAccount(address indexed account, address indexed owner, string name, WalletType indexed walletType);
 
     error AccountAddressMismatch(address account, address predictedAccount);
+
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     address public immutable SAFE_SINGLETON;
     ISafeProxyFactory public immutable SAFE_PROXY_FACTORY;
@@ -100,6 +106,7 @@ contract AccountFactory {
 
         if (walletType == WalletType.SAFE) accountAddress = newSafeAccount(owner, name, modules);
         else if (walletType == WalletType.NEXUS) accountAddress = newNexusAccount(name, modules);
+        else if (walletType == WalletType.OZ) accountAddress = newOzAccount(name, modules);
 
         require(accountAddress == expectedAccountAddress, AccountAddressMismatch(accountAddress, expectedAccountAddress));
     }
@@ -112,13 +119,20 @@ contract AccountFactory {
         return NEXUS_ACCOUNT_FACTORY.createAccount(nexusInitialiserData(modules), keccak256(abi.encodePacked(name)));
     }
 
+    function newOzAccount(string calldata name, ModuleInit[] calldata modules) private returns (address) {
+        return address(new FooAccountERC7579{ salt: keccak256(abi.encodePacked(name)) }(modules));
+    }
+
     function predictAccountAddress(WalletType walletType, address owner, string calldata name, ModuleInit[] calldata modules)
         public
         view
         returns (address)
     {
         if (walletType == WalletType.SAFE) return predictSafeAddress(owner, name, modules);
-        else return predictNexusAddress(name, modules);
+        else if (walletType == WalletType.NEXUS) return predictNexusAddress(name, modules);
+        else if (walletType == WalletType.OZ) return predictOzAddress(name, modules);
+
+        revert("Invalid wallet type");
     }
 
     function predictSafeAddress(address owner, string calldata name, ModuleInit[] calldata modules) public view returns (address) {
@@ -140,6 +154,21 @@ contract AccountFactory {
 
     function predictNexusAddress(string calldata name, ModuleInit[] calldata modules) public view returns (address) {
         return NEXUS_ACCOUNT_FACTORY.computeAccountAddress(nexusInitialiserData(modules), keccak256(abi.encodePacked(name)));
+    }
+
+    function predictOzAddress(string calldata name, ModuleInit[] calldata modules) public view returns (address) {
+        // 1. Recreate the exact same salt
+        bytes32 salt = keccak256(abi.encodePacked(name));
+
+        // 2. Append the encoded constructor arguments to the contract's creation bytecode
+        bytes memory initCode = abi.encodePacked(
+            type(FooAccountERC7579).creationCode,
+            abi.encode(modules) // Make sure this matches how the constructor expects the arguments!
+        );
+        bytes32 initCodeHash = keccak256(initCode);
+
+        // 3. Use Foundry's cheatcode to compute the CREATE2 address
+        return vm.computeCreate2Address(salt, initCodeHash, address(this));
     }
 
     function safeInitialiserData(address owner, ModuleInit[] calldata modules) public view returns (bytes memory) {
@@ -193,6 +222,17 @@ contract AccountFactory {
 
     function _salt(string calldata name) internal pure returns (uint256) {
         return uint256(keccak256(abi.encodePacked(name)));
+    }
+
+}
+
+// In the real world we'd use a factory, a proxy, and an initialise method, but for test purposes this'll do
+contract FooAccountERC7579 is AccountERC7579 {
+
+    constructor(AccountFactory.ModuleInit[] memory modules) {
+        for (uint256 i = 0; i < modules.length; i++) {
+            _installModule(modules[i].moduleType, modules[i].module, modules[i].initData);
+        }
     }
 
 }

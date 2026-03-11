@@ -103,7 +103,7 @@ contract BaseTest is Test, PermitSigner, OracleUtils {
         erc1271Executor = new ERC1271Executor{ salt: "test" }(actionExecutor);
         nftCallbackHandler = new NFTCallbackHandler{ salt: "test" }();
 
-        accountFactory = new AccountFactory(
+        accountFactory = new AccountFactory{ salt: "test" }(
             AccountFactory.Modules(
                 ownableValidator,
                 address(ownableExecutor),
@@ -120,6 +120,7 @@ contract BaseTest is Test, PermitSigner, OracleUtils {
         string memory _walletType = vm.envOr("WALLET_TYPE", string("SAFE"));
         if (keccak256(abi.encodePacked(_walletType)) == keccak256(abi.encodePacked("SAFE"))) return AccountFactory.WalletType.SAFE;
         else if (keccak256(abi.encodePacked(_walletType)) == keccak256(abi.encodePacked("NEXUS"))) return AccountFactory.WalletType.NEXUS;
+        else if (keccak256(abi.encodePacked(_walletType)) == keccak256(abi.encodePacked("OZ"))) return AccountFactory.WalletType.OZ;
 
         revert("Invalid wallet type");
     }
