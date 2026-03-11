@@ -54,18 +54,24 @@ contract AaveMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
     address aaveMoneyMarket;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
+        // Seems Aave added some checks for 0 amounts
+        minWithdrawal = 10;
+        minDeposit = 10;
+        minBorrowing = 10;
+        minRepay = 10;
+        minDebt = 10;
         super.setUp();
 
         IERC20 wETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-        IERC20 dai = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        IERC20 usds = IERC20(0xdC035D45d973E3EC169d2276DDab16f1e407384F);
         quoteAmount = 1000e18;
 
         pool = poolAddressesProvider.getPool();
         oracle = poolAddressesProvider.getPriceOracle();
         poolDataProvider = poolAddressesProvider.getPoolDataProvider();
 
-        aaveMoneyMarket = _deployAction(type(AaveMoneyMarket).creationCode, "");
+        aaveMoneyMarket = address(new AaveMoneyMarket());
 
         MoneyMarket memory moneyMarket = MoneyMarket({
             instance: aaveMoneyMarket,
@@ -84,7 +90,7 @@ contract AaveMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
             borrowLiquidity: this.borrowLiquidity
         });
 
-        super.setUp(wETH, dai, moneyMarket);
+        super.setUp(wETH, usds, moneyMarket);
     }
 
     function supply(uint256 amount) external view returns (Action memory) {
@@ -193,14 +199,14 @@ contract MorphoMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
     address morphoMoneyMarket;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         IERC20 wstETH = IERC20(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
         IERC20 eUSD = IERC20(0xA0d69E286B938e21CBf7E51D71F6A4c8918f482F);
         quoteAmount = 1000e18;
 
-        morphoMoneyMarket = _deployAction(type(MorphoMoneyMarket).creationCode, "");
+        morphoMoneyMarket = address(new MorphoMoneyMarket());
 
         MoneyMarket memory moneyMarket = MoneyMarket({
             instance: morphoMoneyMarket,
@@ -325,7 +331,7 @@ contract CometMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
     uint64 internal constant BASE_INDEX_SCALE = 1e15;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         IERC20 wETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -333,7 +339,7 @@ contract CometMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
         quoteAmount = 1000e18;
         minDebt = minBorrowing = 10e18;
 
-        cometMoneyMarket = _deployAction(type(CometMoneyMarket).creationCode, "");
+        cometMoneyMarket = address(new CometMoneyMarket());
 
         indexScale = BASE_INDEX_SCALE;
 
@@ -464,12 +470,12 @@ contract EulerMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
 
     address eulerMoneyMarket;
     IEulerVault baseVault = IEulerVault(0xD8b27CF359b7D15710a5BE299AF6e7Bf904984C2);
-    IEulerVault quoteVault = IEulerVault(0xc2d36F41841B420937643dcccbEa8163D4F59B6c);
+    IEulerVault quoteVault = IEulerVault(0x328646cdfBaD730432620d845B8F5A2f7D786C01);
     IEthereumVaultConnector evc = IEthereumVaultConnector(payable(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383));
     uint256 borrowIndex;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         IERC20 baseAsset = IERC20(baseVault.asset());
@@ -480,7 +486,7 @@ contract EulerMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
         wrapChainlinkAggregator(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
         wrapChainlinkAggregator(0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6);
 
-        eulerMoneyMarket = _deployAction(type(EulerMoneyMarket).creationCode, "");
+        eulerMoneyMarket = address(new EulerMoneyMarket());
 
         useSharesForDebt = false;
 

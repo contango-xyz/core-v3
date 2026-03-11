@@ -7,8 +7,6 @@ evm_version = "osaka"
 optimizer = true
 optimizer_runs = 100000
 deny = "warnings"
-# Configures the permissions of cheat codes that touch the file system
-fs_permissions = [{ access = "read-write", path = "./deployments" }]
 # Remove metadata from bytecode to get deterministic compiled bytecode across different operating systems
 bytecode_hash = "none"
 cbor_metadata = false
@@ -24,7 +22,6 @@ arbitrum = "${ARBITRUM_URL}"
 optimism = "${OPTIMISM_URL}"
 mainnet = "${MAINNET_URL}"
 base = "${BASE_URL}"
-
 
 [fmt]
 # Maximum line length where formatter will try to wrap the line
@@ -45,7 +42,6 @@ number_underscore = "thousands"
 single_line_statement_blocks = "single"
 # Add new line at start and end of contract declarations
 contract_new_lines = true
-
 
 [invariant]
 # The number of runs that must execute for each invariant test group

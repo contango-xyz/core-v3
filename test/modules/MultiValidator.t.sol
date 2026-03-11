@@ -27,7 +27,7 @@ contract MultiValidatorTest is BaseTest {
     uint256 internal nonce = 0;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         (owner, ownerKey) = makeAddrAndKey("owner");
@@ -36,7 +36,7 @@ contract MultiValidatorTest is BaseTest {
         rootAccount = newAccount(owner);
         subAccount = newAccount(rootAccount);
 
-        multiValidator = MultiValidator(_deployModule(type(MultiValidator).creationCode, ""));
+        multiValidator = new MultiValidator();
         installModule(rootAccount, owner, address(multiValidator), "");
     }
 

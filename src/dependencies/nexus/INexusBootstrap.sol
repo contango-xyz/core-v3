@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.4;
 
-import { IERC7484 } from "../IERC7484.sol";
-
 interface INexusBootstrap {
 
     type CallType is bytes1;
@@ -12,7 +10,21 @@ interface INexusBootstrap {
         bytes data;
     }
 
+    struct BootstrapPreValidationHookConfig {
+        uint256 hookType;
+        address module;
+        bytes data;
+    }
+
+    struct RegistryConfig {
+        address registry;
+        address[] attesters;
+        uint8 threshold;
+    }
+
     error CanNotRemoveLastValidator();
+    error DefaultValidatorAlreadyInstalled();
+    error EmergencyUninstallSigError();
     error EnableModeSigError();
     error FallbackAlreadyInstalledForSelector(bytes4 selector);
     error FallbackCallTypeInvalid();
@@ -24,15 +36,18 @@ interface INexusBootstrap {
     error InvalidInput();
     error InvalidModule(address module);
     error InvalidModuleTypeId(uint256 moduleTypeId);
+    error InvalidNonce();
+    error LinkedList_AlreadyInitialized();
     error LinkedList_EntryAlreadyInList(address entry);
     error LinkedList_InvalidEntry(address entry);
     error LinkedList_InvalidPage();
-    error MismatchModuleTypeId(uint256 moduleTypeId);
+    error MismatchModuleTypeId();
     error MissingFallbackHandler(bytes4 selector);
     error ModuleAddressCanNotBeZero();
     error ModuleAlreadyInstalled(uint256 moduleTypeId, address module);
     error ModuleNotInstalled(uint256 moduleTypeId, address module);
     error NoValidatorInstalled();
+    error PrevalidationHookAlreadyInstalled(address currentPreValidationHook);
     error UnauthorizedOperation(address operator);
     error UnsupportedCallType(CallType callType);
     error ValidatorNotInstalled(address module);
@@ -56,52 +71,49 @@ interface INexusBootstrap {
     function getActiveHook() external view returns (address hook);
     function getExecutorsPaginated(address cursor, uint256 size) external view returns (address[] memory array, address next);
     function getFallbackHandlerBySelector(bytes4 selector) external view returns (CallType, address);
-    function getInitNexusCalldata(
-        BootstrapConfig[] memory validators,
-        BootstrapConfig[] memory executors,
-        BootstrapConfig memory hook,
-        BootstrapConfig[] memory fallbacks,
-        IERC7484 registry,
-        address[] memory attesters,
-        uint8 threshold
-    ) external view returns (bytes memory init);
-    function getInitNexusScopedCalldata(
-        BootstrapConfig[] memory validators,
-        BootstrapConfig memory hook,
-        address registry,
-        address[] memory attesters,
-        uint8 threshold
-    ) external view returns (bytes memory init);
-    function getInitNexusWithSingleValidatorCalldata(
-        BootstrapConfig memory validator,
-        address registry,
-        address[] memory attesters,
-        uint8 threshold
-    ) external view returns (bytes memory init);
+    function getRegistry() external view returns (address);
     function getValidatorsPaginated(address cursor, uint256 size) external view returns (address[] memory array, address next);
     function initNexus(
         BootstrapConfig[] memory validators,
         BootstrapConfig[] memory executors,
         BootstrapConfig memory hook,
         BootstrapConfig[] memory fallbacks,
-        IERC7484 registry,
-        address[] memory attesters,
-        uint8 threshold
-    ) external;
-    function initNexusScoped(
+        BootstrapPreValidationHookConfig[] memory preValidationHooks,
+        RegistryConfig memory registryConfig
+    ) external payable;
+    function initNexusNoRegistry(
         BootstrapConfig[] memory validators,
+        BootstrapConfig[] memory executors,
         BootstrapConfig memory hook,
-        IERC7484 registry,
-        address[] memory attesters,
-        uint8 threshold
-    ) external;
-    function initNexusWithSingleValidator(
-        address validator,
-        bytes memory data,
-        IERC7484 registry,
-        address[] memory attesters,
-        uint8 threshold
-    ) external;
-    function registry() external view returns (address);
+        BootstrapConfig[] memory fallbacks,
+        BootstrapPreValidationHookConfig[] memory preValidationHooks
+    ) external payable;
+    function initNexusScoped(BootstrapConfig[] memory validators, BootstrapConfig memory hook, RegistryConfig memory registryConfig)
+        external
+        payable;
+    function initNexusScopedNoRegistry(BootstrapConfig[] memory validators, BootstrapConfig memory hook) external payable;
+    function initNexusWithDefaultValidator(bytes memory data) external payable;
+    function initNexusWithDefaultValidatorAndOtherModules(
+        bytes memory defaultValidatorInitData,
+        BootstrapConfig[] memory validators,
+        BootstrapConfig[] memory executors,
+        BootstrapConfig memory hook,
+        BootstrapConfig[] memory fallbacks,
+        BootstrapPreValidationHookConfig[] memory preValidationHooks,
+        RegistryConfig memory registryConfig
+    ) external payable;
+    function initNexusWithDefaultValidatorAndOtherModulesNoRegistry(
+        bytes memory defaultValidatorInitData,
+        BootstrapConfig[] memory validators,
+        BootstrapConfig[] memory executors,
+        BootstrapConfig memory hook,
+        BootstrapConfig[] memory fallbacks,
+        BootstrapPreValidationHookConfig[] memory preValidationHooks
+    ) external payable;
+    function initNexusWithSingleValidator(address validator, bytes memory data, RegistryConfig memory registryConfig) external payable;
+    function initNexusWithSingleValidatorNoRegistry(address validator, bytes memory data) external payable;
+    function installModule(uint256 moduleTypeId, address module, bytes memory initData) external payable;
+    function isModuleInstalled(uint256 moduleTypeId, address module, bytes memory additionalContext) external view returns (bool installed);
+    function uninstallModule(uint256 moduleTypeId, address module, bytes memory deInitData) external payable;
 
 }

@@ -31,9 +31,8 @@ contract TokenActionTest is Test, PermitSigner {
     address private spender;
 
     function setUp() public {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
 
-        // Deploy WETH9 mock or use real WETH address
         weth = IWETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
         tokenAction = new TokenAction(weth);
         wallet = new DumbWallet();
@@ -42,8 +41,8 @@ contract TokenActionTest is Test, PermitSigner {
         mockToken = new ERC20Mock("Mock Token", "MTK");
 
         // Setup test addresses (EOAs)
-        (user1, user1Pk) = makeAddrAndKey("user1");
-        (user2, user2Pk) = makeAddrAndKey("user2");
+        (user1, user1Pk) = makeAddrAndKey("firstUser");
+        (user2, user2Pk) = makeAddrAndKey("secondUser");
         spender = makeAddr("spender");
 
         // Give tokens to the wallet (smart wallet holds the tokens)

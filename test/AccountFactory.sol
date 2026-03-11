@@ -9,8 +9,6 @@ import {
 } from "@openzeppelin/contracts/interfaces/draft-IERC7579.sol";
 import { Solarray } from "solarray/Solarray.sol";
 
-import { IERC7484 } from "../src/dependencies/IERC7484.sol";
-
 import { ISafeProxyFactory } from "../src/dependencies/safe/ISafeProxyFactory.sol";
 import { ISafe7579Launchpad } from "../src/dependencies/safe/ISafe7579Launchpad.sol";
 import { ISafe } from "../src/dependencies/safe/ISafe.sol";
@@ -41,7 +39,6 @@ contract AccountFactory {
         address preSignedValidator;
         address erc1271Executor;
         address nftCallbackHandler;
-        address delegateCallCheckHook;
     }
 
     struct ModuleInit {
@@ -59,44 +56,27 @@ contract AccountFactory {
 
     error AccountAddressMismatch(address account, address predictedAccount);
 
-    IERC7484 public immutable REGISTRY;
-
     address public immutable SAFE_SINGLETON;
     ISafeProxyFactory public immutable SAFE_PROXY_FACTORY;
     address public immutable SAFE_7579;
     address public immutable LAUNCHPAD;
     address public immutable FALLBACK_HANDLER;
 
-    address public constant RHINESTONE_ATTESTER = 0x000000333034E9f539ce08819E12c1b8Cb29084d;
-    address public immutable CONTANGO_ATTESTER;
-
     address public immutable OWNABLE_VALIDATOR;
     address public immutable OWNABLE_EXECUTOR;
     address public immutable PRE_SIGNED_VALIDATOR;
     address public immutable ERC1271_EXECUTOR;
     address public immutable NFT_CALLBACK_HANDLER;
-    address public immutable DELEGATE_CALL_CHECK_HOOK;
 
     INexusAccountFactory public immutable NEXUS_ACCOUNT_FACTORY;
     INexusBootstrap public immutable NEXUS_BOOTSTRAP;
 
-    constructor(
-        address contangoAttester,
-        IERC7484 registry,
-        Modules memory modules,
-        SafeContracts memory safeContracts,
-        NexusContracts memory nexusContracts
-    ) {
-        CONTANGO_ATTESTER = contangoAttester;
-
-        REGISTRY = registry;
-
+    constructor(Modules memory modules, SafeContracts memory safeContracts, NexusContracts memory nexusContracts) {
         OWNABLE_VALIDATOR = modules.ownableValidator;
         OWNABLE_EXECUTOR = modules.ownableExecutor;
         PRE_SIGNED_VALIDATOR = modules.preSignedValidator;
         ERC1271_EXECUTOR = modules.erc1271Executor;
         NFT_CALLBACK_HANDLER = modules.nftCallbackHandler;
-        DELEGATE_CALL_CHECK_HOOK = modules.delegateCallCheckHook;
 
         SAFE_SINGLETON = safeContracts.safeSingleton;
         SAFE_PROXY_FACTORY = ISafeProxyFactory(safeContracts.safeProxyFactory);
@@ -163,15 +143,8 @@ contract AccountFactory {
     }
 
     function safeInitialiserData(address owner, ModuleInit[] calldata modules) public view returns (bytes memory) {
-        ISafe7579Launchpad.ModuleInit[] memory safeModules = new ISafe7579Launchpad.ModuleInit[](modules.length);
-        for (uint256 i = 0; i < modules.length; i++) {
-            safeModules[i] = ISafe7579Launchpad.ModuleInit(modules[i].module, modules[i].initData, modules[i].moduleType);
-        }
-
-        bytes memory launchpadCalldata = abi.encodeCall(
-            ISafe7579Launchpad.addSafe7579, (SAFE_7579, safeModules, Solarray.addresses(RHINESTONE_ATTESTER, CONTANGO_ATTESTER), 1)
-        );
-
+        bytes memory launchpadCalldata =
+            abi.encodeWithSelector(ISafe7579Launchpad.addSafe7579.selector, SAFE_7579, modules, new address[](0), 0);
         return abi.encodeCall(
             ISafe.setup, (owner.addresses(), 1, LAUNCHPAD, launchpadCalldata, FALLBACK_HANDLER, address(0), 0, payable(address(0)))
         );
@@ -196,6 +169,7 @@ contract AccountFactory {
         INexusBootstrap.BootstrapConfig[] memory executors = new INexusBootstrap.BootstrapConfig[](executorsCount);
         INexusBootstrap.BootstrapConfig[] memory fallbacks = new INexusBootstrap.BootstrapConfig[](fallbacksCount);
         INexusBootstrap.BootstrapConfig memory hook;
+        INexusBootstrap.BootstrapPreValidationHookConfig[] memory preValidationHooks;
 
         validatorsCount = executorsCount = fallbacksCount = hooksCount = 0;
 
@@ -211,8 +185,9 @@ contract AccountFactory {
             }
         }
 
-        return NEXUS_BOOTSTRAP.getInitNexusCalldata(
-            validators, executors, hook, fallbacks, REGISTRY, Solarray.addresses(RHINESTONE_ATTESTER, CONTANGO_ATTESTER), 1
+        return abi.encode(
+            NEXUS_BOOTSTRAP,
+            abi.encodeCall(INexusBootstrap.initNexusNoRegistry, (validators, executors, hook, fallbacks, preValidationHooks))
         );
     }
 

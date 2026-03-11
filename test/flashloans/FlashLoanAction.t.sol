@@ -41,7 +41,7 @@ contract FlashLoanActionTest is BaseTest {
     Action[] internal actions;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         owner = makeAddr("owner");
@@ -312,7 +312,7 @@ contract FlashLoanActionTest is BaseTest {
     }
 
     function test_FlashLoanAlgebra_Token0() public {
-        vm.createSelectFork("arbitrum", 356_560_102);
+        vm.createSelectFork("arbitrum", 440_349_333);
         super.setUp();
         owner = makeAddr("owner");
         account = newAccount(owner, "account");
@@ -357,7 +357,7 @@ contract FlashLoanActionTest is BaseTest {
     }
 
     function test_FlashLoanAlgebra_Token1() public {
-        vm.createSelectFork("arbitrum", 356_560_102);
+        vm.createSelectFork("arbitrum", 440_349_333);
         super.setUp();
         owner = makeAddr("owner");
         account = newAccount(owner, "account");
@@ -402,7 +402,7 @@ contract FlashLoanActionTest is BaseTest {
     }
 
     function test_FlashLoanSolidly_Token0() public {
-        vm.createSelectFork("base", 32_722_398);
+        vm.createSelectFork("base", 43_181_672);
         super.setUp();
         owner = makeAddr("owner");
         account = newAccount(owner, "account");
@@ -447,7 +447,7 @@ contract FlashLoanActionTest is BaseTest {
     }
 
     function test_FlashLoanSolidly_Token1() public {
-        vm.createSelectFork("base", 32_722_398);
+        vm.createSelectFork("base", 43_181_672);
         super.setUp();
         owner = makeAddr("owner");
         account = newAccount(owner, "account");
@@ -644,7 +644,7 @@ contract FlashLoanActionTest is BaseTest {
         ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
 
         assertEqDecimal(dai.balanceOf(account), 0, 18, "DAI balance should be 0");
-        assertEqDecimal(usdc.balanceOf(account), 999.932481e6, 6, "USDC balance should be 999.932481");
+        assertEqDecimal(usdc.balanceOf(account), 999.816855e6, 6, "USDC balance should be 999.816855");
     }
 
     function test_FlashSwapUniswapV3_Token1Token0() public {
@@ -685,17 +685,19 @@ contract FlashLoanActionTest is BaseTest {
         ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
 
         assertEqDecimal(usdc.balanceOf(account), 0, 6, "USDC balance should be 0");
-        assertEqDecimal(dai.balanceOf(account), 999.867512789789429528e18, 18, "DAI balance should be 999.867512789789429528");
+        assertEqDecimal(dai.balanceOf(account), 999.983053014355823306e18, 18, "DAI balance should be 999.983053014355823306");
     }
 
     function test_FlashSwapPendle_PtForSy() public {
-        IERC20 PTsUSDe31JUL2025 = IERC20(0x3b3fB9C57858EF816833dC91565EFcd85D96f634);
-        IERC20 SY = IERC20(0xF541AA4d6f29ec2423A0D306dBc677021A02DBC0);
-        IPendleMarketV3 market = IPendleMarketV3(0x4339Ffe2B7592Dc783ed13cCE310531aB366dEac);
+        IERC20 PT_Ethena_sUSDE_7MAY2026 = IERC20(0x3de0ff76E8b528C092d47b9DaC775931cef80F49);
+        IERC20 SY = IERC20(0xBF98480425A29197e5d99D003017f63a1e595D02);
+        IPendleMarketV3 market = IPendleMarketV3(0x8dAe8ECe668cf80d348873F23D456448E8694883);
 
-        deal(address(PTsUSDe31JUL2025), account, 1000e18);
+        deal(address(PT_Ethena_sUSDE_7MAY2026), account, 1000e18);
 
-        actions.push(address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (PTsUSDe31JUL2025, 1000e18, address(market)))));
+        actions.push(
+            address(tokenAction).delegateAction(abi.encodeCall(TokenAction.push, (PT_Ethena_sUSDE_7MAY2026, 1000e18, address(market))))
+        );
 
         PackedAction[] memory packedCalls = actions.pack();
         uint256 innerNonce = erc1271Nonce[block.chainid]++;
@@ -727,12 +729,12 @@ contract FlashLoanActionTest is BaseTest {
         vm.prank(owner);
         ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
 
-        assertEqDecimal(PTsUSDe31JUL2025.balanceOf(account), 0, 18, "PTsUSDe31JUL2025 balance should be 0");
-        assertEqDecimal(SY.balanceOf(account), 842.247516568373324077e18, 18, "SY balance should be 842.247516568373324077");
+        assertEqDecimal(PT_Ethena_sUSDE_7MAY2026.balanceOf(account), 0, 18, "PTsUSDe31JUL2025 balance should be 0");
+        assertEqDecimal(SY.balanceOf(account), 811.558681261637220739e18, 18, "SY balance should be 811.558681261637220739");
     }
 
     function test_FlashSwapAlgebra_Token0Token1() public {
-        vm.createSelectFork("arbitrum", 356_560_102);
+        vm.createSelectFork("arbitrum", 440_349_333);
         super.setUp();
         owner = makeAddr("owner");
         account = newAccount(owner, "account");
@@ -777,11 +779,11 @@ contract FlashLoanActionTest is BaseTest {
         ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
 
         assertEqDecimal(usdc.balanceOf(account), 0, 6, "USDC balance should be 0");
-        assertEqDecimal(dai.balanceOf(account), 1000.025643165479704947e18, 18, "DAI balance should be 1000.025643165479704947");
+        assertEqDecimal(dai.balanceOf(account), 999.902743502071640735e18, 18, "DAI balance should be 999.902743502071640735");
     }
 
     function test_FlashSwapAlgebra_Token1() public {
-        vm.createSelectFork("arbitrum", 356_560_102);
+        vm.createSelectFork("arbitrum", 440_349_333);
         super.setUp();
         owner = makeAddr("owner");
         account = newAccount(owner, "account");
@@ -826,11 +828,11 @@ contract FlashLoanActionTest is BaseTest {
         ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
 
         assertEqDecimal(dai.balanceOf(account), 0, 18, "DAI balance should be 0");
-        assertEqDecimal(usdc.balanceOf(account), 999.870828e6, 6, "USDC balance should be 999.870828");
+        assertEqDecimal(usdc.balanceOf(account), 999.992224e6, 6, "USDC balance should be 999.992224");
     }
 
     function test_FlashSwapSolidly_Token0Token1() public {
-        vm.createSelectFork("base", 32_722_398);
+        vm.createSelectFork("base", 43_181_672);
         super.setUp();
         owner = makeAddr("owner");
         account = newAccount(owner, "account");
@@ -875,11 +877,11 @@ contract FlashLoanActionTest is BaseTest {
         ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
 
         assertEqDecimal(dai.balanceOf(account), 0, 18, "DAI balance should be 0");
-        assertEqDecimal(usdc.balanceOf(account), 996.190803e6, 6, "USDC balance should be 996.190803");
+        assertEqDecimal(usdc.balanceOf(account), 995.030924e6, 6, "USDC balance should be 995.030924");
     }
 
     function test_FlashSwapSolidly_Token1Token0() public {
-        vm.createSelectFork("base", 32_722_398);
+        vm.createSelectFork("base", 43_181_672);
         super.setUp();
         owner = makeAddr("owner");
         account = newAccount(owner, "account");
@@ -924,7 +926,7 @@ contract FlashLoanActionTest is BaseTest {
         ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
 
         assertEqDecimal(usdc.balanceOf(account), 0, 6, "USDC balance should be 0");
-        assertEqDecimal(dai.balanceOf(account), 1000.052568369251875124e18, 18, "DAI balance should be 1000.052568369251875124");
+        assertEqDecimal(dai.balanceOf(account), 993.928935051802237306e18, 18, "DAI balance should be 993.928935051802237306");
     }
 
 }

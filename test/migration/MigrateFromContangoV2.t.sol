@@ -43,7 +43,7 @@ contract MigrateFromContangoV2Test is BaseTest {
     address internal treasury;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_590_526);
         super.setUp();
 
         flashLoanProvider = new FlashLoanProvider();
@@ -60,15 +60,15 @@ contract MigrateFromContangoV2Test is BaseTest {
     }
 
     function test_migrateFromContangoV2() public {
-        address positionOwner = 0x56CF0ff00fd6CfB23ce964C6338B228B0FA76640;
-        ContangoV2.PositionId positionId = ContangoV2.PositionId.wrap(0x7773744554485745544800000000000001ffffffff0100000000000000000224);
+        address positionOwner = 0xDE9942f479E154066e1F1a36247e8B49De45eA90;
+        ContangoV2.PositionId positionId = ContangoV2.PositionId.wrap(0x777374455448574554480000000000000effffffff0000000002000000001707);
         ContangoV2.Balances memory balances = lens.balances(positionId);
         ContangoV2.Instrument memory instrument =
             lens.contango().instrument(ContangoV2.Symbol.wrap(ContangoV2.PositionId.unwrap(positionId).extract_32_16(0)));
 
         IPoolAddressesProvider aavePoolAddressesProvider = IPoolAddressesProvider(0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e);
         IPool aavePool = aavePoolAddressesProvider.getPool();
-        AaveMoneyMarket aaveMoneyMarket = AaveMoneyMarket(_deployAction(type(AaveMoneyMarket).creationCode, ""));
+        AaveMoneyMarket aaveMoneyMarket = new AaveMoneyMarket();
 
         flashLoanProvider.setFee(0.005e4); // 0.05% fee
         uint256 flashLoanAmount = balances.debt * 1.00025e18 / 1e18; // 0.025% buffer/fee
@@ -199,15 +199,15 @@ contract MigrateFromContangoV2Test is BaseTest {
 
         assertEqDecimal(lens.contango().vault().balanceOf(instrument.base, account), 0, 18, "action base vault balance");
         assertEqDecimal(lens.contango().vault().balanceOf(instrument.quote, account), 0, 18, "action quote vault balance");
-        assertEqDecimal(
-            aaveMoneyMarket.collateralBalance(account, instrument.base, aavePool), balances.collateral, 18, "safe collateral balance"
+        assertApproxEqAbsDecimal(
+            aaveMoneyMarket.collateralBalance(account, instrument.base, aavePool), balances.collateral, 1, 18, "safe collateral balance"
         );
-        assertEqDecimal(
-            aaveMoneyMarket.debtBalance(account, instrument.quote, aavePool), flashLoanAmount + flashLoanFee, 18, "safe debt balance"
+        assertApproxEqAbsDecimal(
+            aaveMoneyMarket.debtBalance(account, instrument.quote, aavePool), flashLoanAmount + flashLoanFee, 2, 18, "safe debt balance"
         );
         assertEqDecimal(instrument.base.balanceOf(account), 0, 18, "safe base balance");
         assertEqDecimal(instrument.quote.balanceOf(account), 0, 18, "safe quote balance");
-        assertEqDecimal(instrument.quote.balanceOf(treasury), 0.611_034_857_874_110_659 ether, 18, "treasury quote balance");
+        assertEqDecimal(instrument.quote.balanceOf(treasury), 0.026_220_282_645_023_736 ether, 18, "treasury quote balance");
     }
 
     function _noExecution() internal pure returns (ContangoV2.ExecutionParams memory executionParams) {

@@ -39,24 +39,24 @@ contract MultiValidatorCrossChainTest is BaseTest {
         (owner, ownerKey) = makeAddrAndKey("owner");
         caller = makeAddr("caller");
 
-        ethereumFork = vm.createSelectFork("mainnet", 22_895_431);
+        ethereumFork = vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         rootAccountEthereum = newAccount(owner, "Root Account");
         subAccountEthereum = newAccount(rootAccountEthereum, "Sub Account");
 
-        multiValidator = MultiValidator(_deployModule(type(MultiValidator).creationCode, ""));
+        multiValidator = new MultiValidator{ salt: "test" }();
         installModule(rootAccountEthereum, owner, address(multiValidator), "");
 
         targetEthereum = new MockTarget();
 
-        baseFork = vm.createSelectFork("base", 32_722_398);
+        baseFork = vm.createSelectFork("base", 43_181_672);
         super.setUp();
 
         rootAccountBase = newAccount(owner, "Root Account");
         subAccountBase = newAccount(rootAccountBase, "Sub Account");
 
-        multiValidator = MultiValidator(_deployModule(type(MultiValidator).creationCode, ""));
+        multiValidator = new MultiValidator{ salt: "test" }();
         installModule(rootAccountBase, owner, address(multiValidator), "");
 
         targetBase = new MockTarget();
@@ -77,7 +77,7 @@ contract MultiValidatorCrossChainTest is BaseTest {
             bytes32 digest2 = erc1271Executor.digest(IERC7579Execution(rootAccountBase), accountData2, nonce + 2);
 
             // Signing from a third chain for the sake of it
-            vm.createSelectFork("arbitrum", 308_011_729);
+            vm.createSelectFork("arbitrum", 440_349_333);
 
             bytes32[] memory intents = new bytes32[](2);
             intents[0] = digest1;

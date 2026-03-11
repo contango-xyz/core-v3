@@ -30,7 +30,7 @@ contract ERC1271ExecutorTest is BaseTest {
     uint256 internal nonce = 1;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         (owner, ownerKey) = makeAddrAndKey("owner");
@@ -83,7 +83,7 @@ contract ERC1271ExecutorTest is BaseTest {
     }
 
     function test_Delegate() public {
-        MockDelegateTarget target = MockDelegateTarget(_deployAction(type(MockDelegateTarget).creationCode, ""));
+        MockDelegateTarget target = new MockDelegateTarget();
 
         bytes memory accountData = address(target).encodeDelegate(abi.encodeCall(MockDelegateTarget.setStorageValue, (42)));
         bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);

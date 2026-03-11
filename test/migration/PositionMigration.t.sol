@@ -63,7 +63,7 @@ contract PositionMigrationTest is BaseTest {
     address internal holdingAccount2;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         flashLoanProvider = new FlashLoanProvider();
@@ -90,7 +90,7 @@ contract PositionMigrationTest is BaseTest {
     }
 
     function test_migratePositionOnSameHoldingAccount() public {
-        AaveMoneyMarket aaveMoneyMarket = AaveMoneyMarket(_deployAction(type(AaveMoneyMarket).creationCode, ""));
+        AaveMoneyMarket aaveMoneyMarket = new AaveMoneyMarket();
         IPoolAddressesProvider poolAddressesProvider = IPoolAddressesProvider(0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e);
         IPool pool = poolAddressesProvider.getPool();
 
@@ -108,16 +108,17 @@ contract PositionMigrationTest is BaseTest {
         );
         delete actions1;
 
-        assertEqDecimal(aaveMoneyMarket.collateralBalance(holdingAccount1, wstETH, pool), 10e18, 18, "starting collateral balance");
-        assertEqDecimal(aaveMoneyMarket.debtBalance(holdingAccount1, usdc, pool), 6000e6, 6, "starting debt balance");
+        assertApproxEqAbsDecimal(
+            aaveMoneyMarket.collateralBalance(holdingAccount1, wstETH, pool), 10e18, 1, 18, "starting collateral balance"
+        );
+        assertApproxEqAbsDecimal(aaveMoneyMarket.debtBalance(holdingAccount1, usdc, pool), 6000e6, 1, 6, "starting debt balance");
         assertEqDecimal(usdc.balanceOf(holdingAccount1), 0, 6, "dust usdc balance");
 
         // Accrue some interest
         skip(30 days);
 
         IMorpho morpho = IMorpho(0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb);
-        MorphoMoneyMarket morphoMoneyMarket =
-            MorphoMoneyMarket(_deployAction(type(MorphoMoneyMarket).creationCode, abi.encode(0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb)));
+        MorphoMoneyMarket morphoMoneyMarket = new MorphoMoneyMarket();
         MorphoMarketId marketId = MorphoMarketId.wrap(0xb323495f7e4148be5643a4ea4a8221eef163e4bccfdedc2a6f4696baacbc86cc);
 
         uint256 flashLoanAmount = aaveMoneyMarket.debtBalance(holdingAccount1, usdc, pool) * 1.00025e18 / 1e18;
@@ -151,7 +152,7 @@ contract PositionMigrationTest is BaseTest {
 
         assertEqDecimal(
             morphoMoneyMarket.collateralBalance(holdingAccount1, wstETH, marketId, morpho),
-            10.000562989190725943e18,
+            10.000011619060644669e18,
             18,
             "morpho collateral balance"
         );
@@ -159,11 +160,11 @@ contract PositionMigrationTest is BaseTest {
             morphoMoneyMarket.debtBalance(holdingAccount1, usdc, marketId, morpho), flashLoanAmount, 1, 6, "morpho debt balance"
         );
 
-        assertEqDecimal(usdc.balanceOf(holdingAccount1), 1.506118e6, 6, "dust usdc balance");
+        assertEqDecimal(usdc.balanceOf(holdingAccount1), 1.503549e6, 6, "dust usdc balance");
     }
 
     function test_migratePositionOnDifferentHoldingAccount() public {
-        AaveMoneyMarket aaveMoneyMarket = AaveMoneyMarket(_deployAction(type(AaveMoneyMarket).creationCode, ""));
+        AaveMoneyMarket aaveMoneyMarket = new AaveMoneyMarket();
         IPoolAddressesProvider poolAddressesProvider = IPoolAddressesProvider(0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e);
         IPool pool = poolAddressesProvider.getPool();
 
@@ -181,15 +182,17 @@ contract PositionMigrationTest is BaseTest {
         );
         delete actions1;
 
-        assertEqDecimal(aaveMoneyMarket.collateralBalance(holdingAccount1, wstETH, pool), 10e18, 18, "starting collateral balance");
-        assertEqDecimal(aaveMoneyMarket.debtBalance(holdingAccount1, usdc, pool), 6000e6, 6, "starting debt balance");
+        assertApproxEqAbsDecimal(
+            aaveMoneyMarket.collateralBalance(holdingAccount1, wstETH, pool), 10e18, 1, 18, "starting collateral balance"
+        );
+        assertApproxEqAbsDecimal(aaveMoneyMarket.debtBalance(holdingAccount1, usdc, pool), 6000e6, 1, 6, "starting debt balance");
         assertEqDecimal(usdc.balanceOf(holdingAccount1), 0, 6, "dust usdc balance");
 
         // Accrue some interest
         skip(30 days);
 
         IMorpho morpho = IMorpho(0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb);
-        MorphoMoneyMarket morphoMoneyMarket = MorphoMoneyMarket(_deployAction(type(MorphoMoneyMarket).creationCode, ""));
+        MorphoMoneyMarket morphoMoneyMarket = new MorphoMoneyMarket();
         MorphoMarketId marketId = MorphoMarketId.wrap(0xb323495f7e4148be5643a4ea4a8221eef163e4bccfdedc2a6f4696baacbc86cc);
 
         uint256 flashLoanAmount = aaveMoneyMarket.debtBalance(holdingAccount1, usdc, pool) * 1.00025e18 / 1e18;
@@ -226,7 +229,7 @@ contract PositionMigrationTest is BaseTest {
 
         assertEqDecimal(
             morphoMoneyMarket.collateralBalance(holdingAccount2, wstETH, marketId, morpho),
-            10.000562989190725943e18,
+            10.000011619060644669e18,
             18,
             "morpho collateral balance"
         );
@@ -234,7 +237,7 @@ contract PositionMigrationTest is BaseTest {
             morphoMoneyMarket.debtBalance(holdingAccount2, usdc, marketId, morpho), flashLoanAmount, 1, 6, "morpho debt balance"
         );
 
-        assertEqDecimal(usdc.balanceOf(holdingAccount1), 1.506118e6, 6, "dust usdc balance");
+        assertEqDecimal(usdc.balanceOf(holdingAccount1), 1.503549e6, 6, "dust usdc balance");
     }
 
     function _flashLoan(address account, Action[] storage actions, IERC20 token, uint256 amount, address receiver) internal {

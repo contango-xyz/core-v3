@@ -28,7 +28,6 @@ import { OracleUtils } from "./OracleUtils.t.sol";
 import { SpotMarket } from "./SpotMarket.sol";
 import { PortoAccount, PortoAccountWithPk } from "./dependencies/Porto.sol";
 
-import { IERC7484 } from "../src/dependencies/IERC7484.sol";
 import { Enum } from "../src/dependencies/safe/Enum.sol";
 import { IMultiSend } from "../src/dependencies/safe/IMultiSend.sol";
 import { IWETH9 } from "../src/dependencies/IWETH9.sol";
@@ -43,7 +42,6 @@ import { ActionLib } from "./ActionLib.sol";
 import { OwnableExecutor } from "../src/modules/OwnableExecutor.sol";
 import { ERC1271Executor } from "../src/modules/ERC1271Executor.sol";
 import { NFTCallbackHandler } from "../src/modules/NFTCallbackHandler.sol";
-import { DelegateCallCheckHook } from "../src/modules/DelegateCallCheckHook.sol";
 
 import { AccountFactory } from "./AccountFactory.sol";
 
@@ -65,32 +63,23 @@ contract BaseTest is Test, PermitSigner, OracleUtils {
     TokenAction internal tokenAction;
     FlashLoanAction internal flashLoanAction;
 
-    address private safeSingleton = 0x41675C099F32341bf84BFc5382aF534df5C7461a;
+    address private safeSingleton = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
     address private safeProxyFactory = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
     address private fallbackHandler = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
-    address private safe7579 = 0x7579d6Dd6F1e9F57729a59049174ed6Fd7fC0003;
-    address private launchpad = 0x757963952C8c41F84992a30B3e2C718AabBe00EF;
-    IERC7484 internal registry = IERC7484(0x000000000069E2a187AEFFb852bF3cCdC95151B2);
+    address private safe7579 = 0x7579f2AD53b01c3D8779Fe17928e0D48885B0003;
+    address private launchpad = 0x75798463024Bda64D83c94A64Bc7D7eaB41300eF;
 
     address internal ownableValidator = 0x2483DA3A338895199E5e538530213157e931Bf06;
 
-    address internal rhinestoneAttester = 0x000000333034E9f539ce08819E12c1b8Cb29084d;
-    address internal contangoAttester;
-    mapping(uint256 => address[]) internal trustedAttesters;
-    IERC7484.ResolverUID internal resolverUID =
-        IERC7484.ResolverUID.wrap(0xdbca873b13c783c0c9c6ddfc4280e505580bf6cc3dac83f8a0f7b44acaafca4f);
-    IERC7484.SchemaUID internal schemaUID = IERC7484.SchemaUID.wrap(0x93d46fcca4ef7d66a413c7bde08bb1ff14bacbd04c4069bb24cd7c21729d7bf1);
-
     address internal portoAccount = 0xa928ab21caB2366d5E0EF73C68F85A6DC7D0cb9e;
 
-    address internal nexusAccountFactory = 0x000000226cada0d8b36034F5D5c06855F59F6F3A;
-    address internal nexusBootstrap = 0x000000F5b753Fdd20C5CA2D7c1210b3Ab1EA5903;
+    address internal nexusAccountFactory = 0x0000000000679A258c64d2F20F310e12B64b7375;
+    address internal nexusBootstrap = 0x00000000006eFb61D8c9546FF1B500de3f244EA7;
 
     OwnableExecutor internal ownableExecutor;
     ERC1271Executor internal erc1271Executor;
     PreSignedValidator internal preSignedValidator;
     NFTCallbackHandler internal nftCallbackHandler;
-    DelegateCallCheckHook internal delegateCallCheckHook;
 
     mapping(uint256 => uint256) internal safeNonce;
     mapping(uint256 => uint256) internal erc1271Nonce;
@@ -104,31 +93,23 @@ contract BaseTest is Test, PermitSigner, OracleUtils {
         authority = new AccessManager(address(this));
         spotMarket = new SpotMarket(spread);
 
-        trustedAttesters[block.chainid].push(rhinestoneAttester);
-        contangoAttester = makeAddr("ContangoAttester");
-        trustedAttesters[block.chainid].push(contangoAttester);
+        actionExecutor = new ActionExecutor{ salt: "test" }();
+        swapAction = new SwapAction{ salt: "test" }();
+        tokenAction = new TokenAction{ salt: "test" }(nativeToken);
+        flashLoanAction = new FlashLoanAction{ salt: "test" }();
 
-        actionExecutor = ActionExecutor(_deployAction(type(ActionExecutor).creationCode, abi.encode(registry)));
-        swapAction = SwapAction(_deployAction(type(SwapAction).creationCode, ""));
-        tokenAction = TokenAction(_deployAction(type(TokenAction).creationCode, abi.encode(nativeToken)));
-        flashLoanAction = FlashLoanAction(_deployAction(type(FlashLoanAction).creationCode, ""));
-
-        preSignedValidator = PreSignedValidator(_deployModule(type(PreSignedValidator).creationCode, ""));
-        ownableExecutor = OwnableExecutor(_deployModule(type(OwnableExecutor).creationCode, abi.encode(actionExecutor)));
-        erc1271Executor = ERC1271Executor(_deployModule(type(ERC1271Executor).creationCode, abi.encode(actionExecutor)));
-        nftCallbackHandler = NFTCallbackHandler(_deployModule(type(NFTCallbackHandler).creationCode, ""));
-        delegateCallCheckHook = DelegateCallCheckHook(_deployModule(type(DelegateCallCheckHook).creationCode, abi.encode(registry)));
+        preSignedValidator = new PreSignedValidator{ salt: "test" }();
+        ownableExecutor = new OwnableExecutor{ salt: "test" }(actionExecutor);
+        erc1271Executor = new ERC1271Executor{ salt: "test" }(actionExecutor);
+        nftCallbackHandler = new NFTCallbackHandler{ salt: "test" }();
 
         accountFactory = new AccountFactory(
-            contangoAttester,
-            registry,
             AccountFactory.Modules(
                 ownableValidator,
                 address(ownableExecutor),
                 address(preSignedValidator),
                 address(erc1271Executor),
-                address(nftCallbackHandler),
-                address(delegateCallCheckHook)
+                address(nftCallbackHandler)
             ),
             AccountFactory.SafeContracts(safeSingleton, safeProxyFactory, safe7579, launchpad, fallbackHandler),
             AccountFactory.NexusContracts(nexusAccountFactory, nexusBootstrap)
@@ -141,51 +122,6 @@ contract BaseTest is Test, PermitSigner, OracleUtils {
         else if (keccak256(abi.encodePacked(_walletType)) == keccak256(abi.encodePacked("NEXUS"))) return AccountFactory.WalletType.NEXUS;
 
         revert("Invalid wallet type");
-    }
-
-    function _deployModule(bytes memory initCode, bytes memory constructorArgs) internal returns (address moduleAddress) {
-        address predictedModuleAddress =
-            Create2.computeAddress(bytes32(0), keccak256(abi.encodePacked(initCode, constructorArgs)), address(registry));
-        vm.startPrank(contangoAttester);
-        moduleAddress = registry.deployModule(bytes32(0), resolverUID, abi.encodePacked(initCode, constructorArgs), "", "");
-        require(moduleAddress == predictedModuleAddress, "Module address does not match predicted module address");
-
-        uint256[] memory moduleTypes = new uint256[](4);
-        uint256 moduleTypeIndex = 0;
-        for (uint256 i = 1; i < 5; i++) {
-            if (IERC7579Module(moduleAddress).isModuleType(i)) moduleTypes[moduleTypeIndex++] = i;
-        }
-        assembly {
-            mstore(moduleTypes, moduleTypeIndex)
-        }
-
-        registry.attest(
-            schemaUID,
-            IERC7484.AttestationRequest({
-                moduleAddress: moduleAddress,
-                expirationTime: 0,
-                data: abi.encode(address(0)),
-                moduleTypes: abi.decode(abi.encode(moduleTypes), (IERC7484.ModuleType[]))
-            })
-        );
-        vm.stopPrank();
-    }
-
-    function _deployAction(bytes memory initCode, bytes memory constructorArgs) internal returns (address actionAddress) {
-        address predictedActionAddress =
-            Create2.computeAddress(bytes32(0), keccak256(abi.encodePacked(initCode, constructorArgs)), address(registry));
-        vm.startPrank(contangoAttester);
-        actionAddress = registry.deployModule(bytes32(0), resolverUID, abi.encodePacked(initCode, constructorArgs), "", "");
-        require(actionAddress == predictedActionAddress, "Action address does not match predicted action address");
-
-        registry.attest(
-            schemaUID,
-            IERC7484.AttestationRequest({
-                moduleAddress: actionAddress, expirationTime: 0, data: abi.encode(address(0)), moduleTypes: new IERC7484.ModuleType[](0)
-            })
-        );
-
-        vm.stopPrank();
     }
 
     function predictAccountAddress(address owner, string memory name) internal view returns (address) {

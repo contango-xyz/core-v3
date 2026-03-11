@@ -5,6 +5,7 @@ interface INexusAccountFactory {
 
     error AccountAlreadyDeployed(address account);
     error AlreadyInitialized();
+    error EthTransferFailed();
     error ImplementationAddressCanNotBeZero();
     error InvalidEntryPointAddress();
     error NewOwnerIsZeroAddress();

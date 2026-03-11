@@ -30,7 +30,7 @@ contract SwapActionTest is Test {
     DumbWallet private wallet;
 
     function setUp() public {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         action = new SwapAction();
         spotMarket = new SpotMarket(0.01e18);
         wallet = new DumbWallet();
@@ -128,24 +128,24 @@ contract SwapActionTest is Test {
         vm.expectEmit(true, true, true, true);
         emit SwapAction.SwapPartExecuted(USDC, DAI, 1000e6, 990e18, "Test Spot Market");
         vm.expectEmit(true, true, true, true);
-        emit SwapAction.SwapPartExecuted(DAI, sDAI, 990e18, 852.162862208481016778e18, "sDAI");
+        emit SwapAction.SwapPartExecuted(DAI, sDAI, 990e18, 843.995857702612663143e18, "sDAI");
 
         vm.expectEmit(true, true, true, true);
-        emit SwapAction.SwapExecuted(USDC, sDAI, 1000e6, 852.162862208481016778e18);
+        emit SwapAction.SwapExecuted(USDC, sDAI, 1000e6, 843.995857702612663143e18);
 
         (uint256 amountIn, uint256 amountOut) =
             abi.decode(wallet.delegate(address(action), abi.encodeCall(SwapAction.executeSwaps, (swaps))), (uint256, uint256));
 
         assertEqDecimal(amountIn, 1000e6, 6, "Amount in should be 1000");
-        assertEqDecimal(amountOut, 852.162862208481016778e18, 18, "Output should be 852.162862208481016778");
+        assertEqDecimal(amountOut, 843.995857702612663143e18, 18, "Output should be 843.995857702612663143");
         assertEqDecimal(
-            sDAI.balanceOf(address(wallet)), 852.162862208481016778e18, 18, "sDAI balance should be 852.1628622084810167780 after deposit"
+            sDAI.balanceOf(address(wallet)), 843.995857702612663143e18, 18, "sDAI balance should be 843.9958577026126631430 after deposit"
         );
     }
 
     function test_executeSwaps_erc4626_redeem() public {
         deal(address(USDC), address(wallet), 0);
-        deal(address(sDAI), address(wallet), 852.162862208481016778e18);
+        deal(address(sDAI), address(wallet), 843.995857702612663143e18);
 
         SwapAction.Swap[] memory swaps = new SwapAction.Swap[](2);
         swaps[0] = SwapAction.Swap({
@@ -173,17 +173,17 @@ contract SwapActionTest is Test {
         });
 
         vm.expectEmit(true, true, true, true);
-        emit SwapAction.SwapPartExecuted(sDAI, DAI, 852.162862208481016778e18, 989.999999999999999999e18, "sDAI");
+        emit SwapAction.SwapPartExecuted(sDAI, DAI, 843.995857702612663143e18, 989.999999999999999998e18, "sDAI");
         vm.expectEmit(true, true, true, true);
-        emit SwapAction.SwapPartExecuted(DAI, USDC, 989.999999999999999999e18, 980.099999e6, "Test Spot Market");
+        emit SwapAction.SwapPartExecuted(DAI, USDC, 989.999999999999999998e18, 980.099999e6, "Test Spot Market");
 
         vm.expectEmit(true, true, true, true);
-        emit SwapAction.SwapExecuted(sDAI, USDC, 852.162862208481016778e18, 980.099999e6);
+        emit SwapAction.SwapExecuted(sDAI, USDC, 843.995857702612663143e18, 980.099999e6);
 
         (uint256 amountIn, uint256 amountOut) =
             abi.decode(wallet.delegate(address(action), abi.encodeCall(SwapAction.executeSwaps, (swaps))), (uint256, uint256));
 
-        assertEqDecimal(amountIn, 852.162862208481016778e18, 18, "Amount in should be 852.162862208481016778");
+        assertEqDecimal(amountIn, 843.995857702612663143e18, 18, "Amount in should be 843.995857702612663143");
         assertEqDecimal(amountOut, 980.099999e6, 6, "Output should be 980.099999");
         assertEqDecimal(USDC.balanceOf(address(wallet)), 980.099999e6, 6, "USDC balance should be 980.099999 after redeem");
     }
@@ -216,7 +216,7 @@ contract SwapActionTest is Test {
 
     function test_executeSwaps_offsetsRequiredForFollowUpSwaps() public {
         deal(address(USDC), address(wallet), 0);
-        deal(address(sDAI), address(wallet), 852.162862208481016778e18);
+        deal(address(sDAI), address(wallet), 843.995857702612663143e18);
 
         SwapAction.Swap[] memory swaps = new SwapAction.Swap[](2);
         swaps[0] = SwapAction.Swap({

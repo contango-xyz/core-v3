@@ -16,7 +16,7 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
     OwnableExecutor internal freshExecutor;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         owner = makeAddr("owner");
@@ -153,7 +153,7 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
 
     function test_Delegate() public {
         // Setup a mock contract to delegate to
-        MockDelegateTarget target = MockDelegateTarget(_deployAction(type(MockDelegateTarget).creationCode, ""));
+        MockDelegateTarget target = new MockDelegateTarget();
 
         vm.prank(owner);
         ownableExecutor.delegate(account, address(target), abi.encodeCall(MockDelegateTarget.setStorageValue, (42)));
@@ -228,7 +228,7 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
     }
 
     function test_RevertWhen_NonOwnerDelegates() public {
-        MockDelegateTarget target = MockDelegateTarget(_deployAction(type(MockDelegateTarget).creationCode, ""));
+        MockDelegateTarget target = new MockDelegateTarget();
 
         vm.prank(otherOwner);
         vm.expectRevert(abi.encodeWithSelector(OwnableExecutor.Unauthorized.selector, account, otherOwner));
@@ -256,7 +256,7 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
     }
 
     function test_DelegateReturnsData() public {
-        MockDelegateTarget target = MockDelegateTarget(_deployAction(type(MockDelegateTarget).creationCode, ""));
+        MockDelegateTarget target = new MockDelegateTarget();
 
         vm.prank(owner);
         ownableExecutor.delegate(account, address(target), abi.encodeCall(MockDelegateTarget.setStorageValue, (42)));

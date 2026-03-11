@@ -29,12 +29,12 @@ contract AavePositionLifecycleTest is AbstractPositionLifecycleTest {
     IPool pool;
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         super.setUp();
 
         pool = provider.getPool();
 
-        aaveMoneyMarket = AaveMoneyMarket(_deployAction(type(AaveMoneyMarket).creationCode, ""));
+        aaveMoneyMarket = new AaveMoneyMarket();
         supportsFlashBorrow = true;
     }
 
@@ -101,16 +101,16 @@ contract MorphoPositionLifecycleTest is AbstractPositionLifecycleTest {
     using ActionLib for *;
 
     MorphoMoneyMarket morphoMoneyMarket;
-    MorphoMarketId marketId = MorphoMarketId.wrap(0x6029eea874791e01e2f3ce361f2e08839cd18b1e26eea6243fa3e43fe8f6fa23);
+    MorphoMarketId marketId = MorphoMarketId.wrap(0xb374528d44b6ab6e0cecc87e0481f45d892f38baec90c1d318851969ec14ea5f);
     IMorpho morpho = IMorpho(0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb);
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         base = IERC20(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
-        quote = IERC20(0xA0d69E286B938e21CBf7E51D71F6A4c8918f482F);
+        quote = IERC20(0xdC035D45d973E3EC169d2276DDab16f1e407384F);
         super.setUp();
 
-        morphoMoneyMarket = MorphoMoneyMarket(_deployAction(type(MorphoMoneyMarket).creationCode, ""));
+        morphoMoneyMarket = new MorphoMoneyMarket();
     }
 
     function _supplyToMarket(Action[] storage actions, uint256 amount) internal virtual override {
@@ -153,11 +153,11 @@ contract CometPositionLifecycleTest is AbstractPositionLifecycleTest {
     IComet comet = IComet(0x5D409e56D886231aDAf00c8775665AD0f9897b56);
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         quote = IERC20(0xdC035D45d973E3EC169d2276DDab16f1e407384F);
         super.setUp();
 
-        cometMoneyMarket = CometMoneyMarket(_deployAction(type(CometMoneyMarket).creationCode, ""));
+        cometMoneyMarket = new CometMoneyMarket();
     }
 
     function _supplyToMarket(Action[] storage actions, uint256 amount) internal virtual override {
@@ -197,11 +197,11 @@ contract EulerPositionLifecycleTest is AbstractPositionLifecycleTest {
 
     EulerMoneyMarket eulerMoneyMarket;
     IEulerVault baseVault = IEulerVault(0xD8b27CF359b7D15710a5BE299AF6e7Bf904984C2);
-    IEulerVault quoteVault = IEulerVault(0xc2d36F41841B420937643dcccbEa8163D4F59B6c);
+    IEulerVault quoteVault = IEulerVault(0x328646cdfBaD730432620d845B8F5A2f7D786C01);
     IEthereumVaultConnector evc = IEthereumVaultConnector(payable(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383));
 
     function setUp() public override {
-        vm.createSelectFork("mainnet", 22_895_431);
+        vm.createSelectFork("mainnet", 24_627_639);
         quote = IERC20(quoteVault.asset());
         super.setUp();
 
@@ -210,7 +210,7 @@ contract EulerPositionLifecycleTest is AbstractPositionLifecycleTest {
         quoteVault.deposit(100_000e18, treasury);
         vm.stopPrank();
 
-        eulerMoneyMarket = EulerMoneyMarket(_deployAction(type(EulerMoneyMarket).creationCode, ""));
+        eulerMoneyMarket = new EulerMoneyMarket();
 
         supportsFlashBorrow = true;
         supportsFlashWithdraw = true;
