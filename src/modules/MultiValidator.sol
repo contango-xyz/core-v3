@@ -69,7 +69,7 @@ contract MultiValidator is ERC7579StatelessValidator {
         bytes32 _result = IERC1271(account).isValidSignature(metaHash, multiSignature.signature);
         if (_result != IERC1271.isValidSignature.selector) return false;
 
-        for (uint256 i = 0; i < multiSignature.intents.length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             if (multiSignature.intents[i] == hash) return true;
         }
 
