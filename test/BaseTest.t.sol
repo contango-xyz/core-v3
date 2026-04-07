@@ -185,7 +185,7 @@ contract BaseTest is Test, PermitSigner, OracleUtils {
     function encodeDelegate(address account, uint256 ownerPk, address target, bytes memory data) public returns (address, bytes memory) {
         bytes memory accountData = abi.encodePacked(target, data);
         uint256 nonce = erc1271Nonce[block.chainid]++;
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.delegate.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -198,7 +198,7 @@ contract BaseTest is Test, PermitSigner, OracleUtils {
         PackedAction[] memory packedActions = actions.pack();
         bytes memory accountData = abi.encode(packedActions);
         uint256 nonce = erc1271Nonce[block.chainid]++;
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.executeActions.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 

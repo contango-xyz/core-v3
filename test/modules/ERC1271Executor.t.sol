@@ -48,7 +48,7 @@ contract ERC1271ExecutorTest is BaseTest {
     function test_ExecuteSingle() public {
         MockTarget target = new MockTarget();
         bytes memory accountData = address(target).encodeSingle(0, abi.encodeCall(MockTarget.setValue, (42)));
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.execute.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -64,7 +64,7 @@ contract ERC1271ExecutorTest is BaseTest {
     function test_ExecuteWithValue() public {
         MockTarget target = new MockTarget();
         bytes memory accountData = address(target).encodeSingle(0.4 ether, abi.encodeCall(MockTarget.setValue, (42)));
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.execute.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -86,7 +86,7 @@ contract ERC1271ExecutorTest is BaseTest {
         MockDelegateTarget target = new MockDelegateTarget();
 
         bytes memory accountData = address(target).encodeDelegate(abi.encodeCall(MockDelegateTarget.setStorageValue, (42)));
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.delegate.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -96,7 +96,7 @@ contract ERC1271ExecutorTest is BaseTest {
         assertEq(target.storageValue(), 0);
 
         accountData = address(target).encodeDelegate(abi.encodeCall(MockDelegateTarget.storageValue, ()));
-        hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ++nonce);
+        hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.delegate.selector, ++nonce);
         (v, r, s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -112,7 +112,7 @@ contract ERC1271ExecutorTest is BaseTest {
         MockDelegateTarget target = new MockDelegateTarget();
 
         bytes memory accountData = address(target).encodeDelegate(abi.encodeCall(MockDelegateTarget.setStorageValue, (42)));
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.delegate.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -125,7 +125,7 @@ contract ERC1271ExecutorTest is BaseTest {
         assertEq(target.storageValue(), 0);
 
         accountData = address(target).encodeDelegate(abi.encodeCall(MockDelegateTarget.storageValue, ()));
-        hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ++nonce);
+        hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.delegate.selector, ++nonce);
         (v, r, s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -148,7 +148,7 @@ contract ERC1271ExecutorTest is BaseTest {
         calls[1] = Execution({ target: address(target2), value: 0, callData: abi.encodeCall(MockTarget.setValue, (24)) });
 
         bytes memory accountData = calls.encodeBatch();
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.executeBatch.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -170,7 +170,7 @@ contract ERC1271ExecutorTest is BaseTest {
         calls[1] = Execution({ target: address(target2), value: 0.2 ether, callData: abi.encodeCall(MockTarget.setValue, (24)) });
 
         bytes memory accountData = calls.encodeBatch();
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.executeBatch.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -190,7 +190,7 @@ contract ERC1271ExecutorTest is BaseTest {
     function test_RevertWhen_ExecuteWithInvalidSignature() public {
         MockTarget target = new MockTarget();
         bytes memory accountData = address(target).encodeSingle(0, abi.encodeCall(MockTarget.setValue, (42)));
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.execute.selector, nonce);
         (, uint256 wrongKey) = makeAddrAndKey("wrong");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
@@ -203,7 +203,7 @@ contract ERC1271ExecutorTest is BaseTest {
     function test_RevertWhen_ExecuteWithInsufficientValue() public {
         MockTarget target = new MockTarget();
         bytes memory accountData = address(target).encodeSingle(1 ether, abi.encodeCall(MockTarget.setValue, (42)));
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.execute.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -216,7 +216,7 @@ contract ERC1271ExecutorTest is BaseTest {
     function test_RevertWhen_ExecuteWithWrongValidator() public {
         MockTarget target = new MockTarget();
         bytes memory accountData = address(target).encodeSingle(0, abi.encodeCall(MockTarget.setValue, (42)));
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.execute.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(address(0xdead), r, s, v); // Wrong validator
 
@@ -233,7 +233,7 @@ contract ERC1271ExecutorTest is BaseTest {
         bytes memory accountData = address(target).encodeSingle(0, abi.encodeCall(MockTarget.setValue, (42)));
 
         // Sign for account1
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.execute.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 
@@ -251,7 +251,7 @@ contract ERC1271ExecutorTest is BaseTest {
     function test_RevertWhen_ExecuteWithReplayedSignature() public {
         MockTarget target = new MockTarget();
         bytes memory accountData = address(target).encodeSingle(0, abi.encodeCall(MockTarget.setValue, (42)));
-        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.execute.selector, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
         bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
 

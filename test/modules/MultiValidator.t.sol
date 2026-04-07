@@ -9,6 +9,7 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
 import { MultiValidator, MultiSignature } from "../../src/modules/MultiValidator.sol";
 import { ERC7579Lib } from "../../src/modules/base/ERC7579Utils.sol";
 import { UnorderedNonce } from "../../src/modules/UnorderedNonce.sol";
+import { ERC1271Executor } from "../../src/modules/ERC1271Executor.sol";
 
 contract MultiValidatorTest is BaseTest {
 
@@ -44,7 +45,7 @@ contract MultiValidatorTest is BaseTest {
         MockTarget target = new MockTarget();
         bytes memory callData = abi.encodeCall(MockTarget.setValue, (42));
         bytes memory accountData = address(target).encodeSingle(0, callData);
-        bytes32 digest = erc1271Executor.digest(IERC7579Execution(rootAccount), accountData, nonce);
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(rootAccount), accountData, ERC1271Executor.execute.selector, nonce);
 
         bytes32[] memory intents = new bytes32[](1);
         intents[0] = digest;
@@ -77,10 +78,12 @@ contract MultiValidatorTest is BaseTest {
         bytes memory callData2 = abi.encodeCall(MockTarget.setValue, (84));
         {
             bytes memory accountData1 = address(target).encodeSingle(0, callData1);
-            bytes32 digest1 = erc1271Executor.digest(IERC7579Execution(rootAccount), accountData1, nonce + 1);
+            bytes32 digest1 =
+                erc1271Executor.digest(IERC7579Execution(rootAccount), accountData1, ERC1271Executor.execute.selector, nonce + 1);
 
             bytes memory accountData2 = address(target).encodeSingle(0, callData2);
-            bytes32 digest2 = erc1271Executor.digest(IERC7579Execution(rootAccount), accountData2, nonce + 2);
+            bytes32 digest2 =
+                erc1271Executor.digest(IERC7579Execution(rootAccount), accountData2, ERC1271Executor.execute.selector, nonce + 2);
 
             bytes32[] memory intents = new bytes32[](2);
             intents[0] = digest1;
