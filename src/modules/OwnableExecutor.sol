@@ -45,10 +45,21 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         require(isOwner(account, msg.sender), Unauthorized(account, msg.sender));
     }
 
+    /**
+     * @notice Checks if an address is an owner of a given account.
+     * @param account The account to check.
+     * @param owner The address to check for ownership.
+     * @return True if the address is an owner, false otherwise.
+     */
     function isOwner(IERC7579Execution account, address owner) public view returns (bool) {
         return accountOwners[account].contains(owner);
     }
 
+    /**
+     * @notice Returns the list of owners for a given account.
+     * @param account The account to query.
+     * @return An array of owner addresses.
+     */
     function getOwners(IERC7579Execution account) external view returns (address[] memory) {
         return accountOwners[account].values();
     }
@@ -63,6 +74,11 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         emit OwnerRemoved(account, owner);
     }
 
+    /**
+     * @notice Initializes the module for an account.
+     * @dev Decodes initial owners from the provided data.
+     * @param data Packed owner addresses (20 bytes each).
+     */
     function onInstall(bytes calldata data) external override {
         IERC7579Execution account = IERC7579Execution(msg.sender);
         require(accountOwners[account].length() == 0, AlreadyInstalled());
@@ -80,6 +96,11 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         emit ModuleInstalled(address(account), data);
     }
 
+    /**
+     * @notice Uninstalls the module for an account.
+     * @dev Removes all owners associated with the account.
+     * @param data Unused.
+     */
     function onUninstall(bytes calldata data) external override {
         IERC7579Execution account = IERC7579Execution(msg.sender);
         require(accountOwners[account].length() > 0, NotInstalled());
@@ -95,6 +116,12 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         _addOwner(IERC7579Execution(msg.sender), owner);
     }
 
+    /**
+     * @notice Adds a new owner to a specific account.
+     * @dev Can only be called by an existing owner of the account.
+     * @param account The account to modify.
+     * @param owner The new owner address.
+     */
     function addOwner(IERC7579Execution account, address owner) external onlyOwner(account) {
         _addOwner(account, owner);
     }
@@ -107,6 +134,15 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
 
     // ============================= EXECUTION FUNCTIONS =============================
 
+    /**
+     * @notice Executes a single call on behalf of an account.
+     * @dev See `OwnableExecutor.t.sol` for examples.
+     * @param account The account to execute the call from.
+     * @param target The target address of the call.
+     * @param data The calldata to be executed.
+     * @return returnData The return data from the execution.
+     * @custom:example `execute(account, token, abi.encodeCall(IERC20.transfer, (to, amount)))`
+     */
     function execute(IERC7579Execution account, address target, bytes calldata data)
         external
         payable
@@ -116,6 +152,15 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         return _execute(account, target, data);
     }
 
+    /**
+     * @notice Executes a single delegatecall on behalf of an account.
+     * @dev See `OwnableExecutor.t.sol` for examples.
+     * @param account The account to execute the delegatecall from.
+     * @param target The target address of the delegatecall.
+     * @param data The calldata to be executed.
+     * @return returnData The return data from the execution.
+     * @custom:example `delegate(account, lib, abi.encodeCall(Lib.foo, (arg)))`
+     */
     function delegate(IERC7579Execution account, address target, bytes calldata data)
         external
         payable
@@ -125,6 +170,12 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         return _delegate(account, target, data);
     }
 
+    /**
+     * @notice Executes a batch of calls on behalf of an account.
+     * @param account The account to execute the calls from.
+     * @param calls The array of executions to perform.
+     * @return returnData The array of return data from the executions.
+     */
     function executeBatch(IERC7579Execution account, Execution[] calldata calls)
         external
         payable
@@ -136,6 +187,13 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
 
     // ============================= ACTION EXECUTION FUNCTIONS =============================
 
+    /**
+     * @notice Executes a single packed action on behalf of an account.
+     * @dev Uses delegatecall to the ActionExecutor.
+     * @param account The account to execute the action from.
+     * @param action The packed action data.
+     * @return returnData The return data from the execution.
+     */
     function executeAction(IERC7579Execution account, PackedAction calldata action)
         external
         payable
@@ -145,6 +203,13 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         return _executeAction(account, action);
     }
 
+    /**
+     * @notice Executes a batch of packed actions on behalf of an account.
+     * @dev Uses delegatecall to the ActionExecutor.
+     * @param account The account to execute the actions from.
+     * @param actions The array of packed action data.
+     * @return returnData The array of return data from the executions.
+     */
     function executeActions(IERC7579Execution account, PackedAction[] calldata actions)
         external
         payable

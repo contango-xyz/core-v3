@@ -11,10 +11,17 @@ abstract contract ERC7579Hook is ERC7579Module, IERC7579Hook {
         return moduleTypeId == MODULE_TYPE_HOOK;
     }
 
+    /**
+     * @notice Executed before an account execution.
+     * @return Any data to be passed to `postCheck`.
+     */
     function preCheck(address, uint256, bytes calldata) external virtual override returns (bytes memory) {
         return "";
     }
 
+    /**
+     * @notice Executed after an account execution.
+     */
     function postCheck(bytes calldata) external virtual override { }
 
 }

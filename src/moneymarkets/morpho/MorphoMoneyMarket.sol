@@ -46,6 +46,16 @@ contract MorphoMoneyMarket {
         IMorpho indexed morpho, MorphoMarketId indexed marketId, IERC20 indexed token, uint256 amount, address to
     );
 
+    /**
+     * @notice Supplies tokens to a Morpho Blue market.
+     * @dev If the token is the collateral token, it calls `supplyCollateral`.
+     * If the token is the loan token, it calls `supply`, which earns interest but may be subject to withdrawal limits.
+     * @param amount The amount of tokens to supply. Use `ACCOUNT_BALANCE` for the entire balance.
+     * @param token The ERC20 token to supply.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return supplied The actual amount of tokens supplied.
+     */
     function supply(uint256 amount, IERC20 token, MorphoMarketId marketId, IMorpho morpho) public returns (uint256 supplied) {
         if (amount == ACCOUNT_BALANCE) amount = token.myBalance();
         if (amount == 0) return 0;
@@ -70,6 +80,15 @@ contract MorphoMoneyMarket {
         }
     }
 
+    /**
+     * @notice Borrows tokens from a Morpho Blue market.
+     * @param amount The amount of tokens to borrow.
+     * @param token The ERC20 token to borrow (must be the market's loan token).
+     * @param to The address that will receive the borrowed tokens.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return borrowed The actual amount of tokens borrowed.
+     */
     function borrow(uint256 amount, IERC20 token, address to, MorphoMarketId marketId, IMorpho morpho) public returns (uint256 borrowed) {
         if (amount == 0) return 0;
 
@@ -83,6 +102,15 @@ contract MorphoMoneyMarket {
         emit MorphoBorrow(morpho, marketId, token, assetsBorrowed, sharesBorrowed, morpho.debtIndex(marketId), to);
     }
 
+    /**
+     * @notice Repays a borrow on a Morpho Blue market.
+     * @dev Calculates the precise number of shares to repay to match the requested amount.
+     * @param amount The amount of tokens to repay. Use `ACCOUNT_BALANCE` or `DEBT_BALANCE`.
+     * @param token The ERC20 token to repay (must be the market's loan token).
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return repaid The actual amount of tokens repaid.
+     */
     function repay(uint256 amount, IERC20 token, MorphoMarketId marketId, IMorpho morpho) public returns (uint256 repaid) {
         if (amount == ACCOUNT_BALANCE) amount = token.myBalance();
         uint256 debt = debtBalance(address(this), token, marketId, morpho);
@@ -111,6 +139,17 @@ contract MorphoMoneyMarket {
         }
     }
 
+    /**
+     * @notice Withdraws tokens from a Morpho Blue market.
+     * @dev If the token is the collateral token, it calls `withdrawCollateral`.
+     * If the token is the loan token, it calls `withdraw`.
+     * @param amount The amount of tokens to withdraw. Use `COLLATERAL_BALANCE` for all.
+     * @param token The ERC20 token to withdraw.
+     * @param to The address that will receive the withdrawn tokens.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return withdrawn The actual amount of tokens withdrawn.
+     */
     function withdraw(uint256 amount, IERC20 token, address to, MorphoMarketId marketId, IMorpho morpho)
         public
         returns (uint256 withdrawn)
@@ -137,6 +176,15 @@ contract MorphoMoneyMarket {
         }
     }
 
+    /**
+     * @notice Gets the debt balance of an account in a Morpho Blue market.
+     * @dev Accrues interest before calculating the balance to provide an up-to-date value.
+     * @param account The account to query.
+     * @param token The loan token of the market.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return The current debt balance.
+     */
     function debtBalance(address account, IERC20 token, MorphoMarketId marketId, IMorpho morpho) public returns (uint256) {
         MarketParams memory marketParams = morpho.idToMarketParams(marketId);
         require(address(token) == address(marketParams.loanToken), InvalidToken(token));
@@ -147,6 +195,14 @@ contract MorphoMoneyMarket {
         return position.borrowShares.toAssetsUp(market.totalBorrowAssets, market.totalBorrowShares);
     }
 
+    /**
+     * @notice Gets the collateral balance of an account in a Morpho Blue market.
+     * @param account The account to query.
+     * @param token The collateral token of the market.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return The current collateral balance.
+     */
     function collateralBalance(address account, IERC20 token, MorphoMarketId marketId, IMorpho morpho) public view returns (uint256) {
         MarketParams memory marketParams = morpho.idToMarketParams(marketId);
         require(address(token) == address(marketParams.collateralToken), InvalidToken(token));
@@ -166,6 +222,14 @@ contract MorphoMoneyMarket {
         return morpho.idToMarketParams(marketId).oracleUnit();
     }
 
+    /**
+     * @notice Calculates the supply APY for a token in a Morpho Blue market.
+     * @dev Adjusts the borrow rate based on utilization and protocol fees.
+     * @param token The token to query.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return The supply APY in WAD.
+     */
     function supplyRate(IERC20 token, MorphoMarketId marketId, IMorpho morpho) public view returns (uint256) {
         MarketParams memory params = morpho.idToMarketParams(marketId);
         if (address(token) == address(params.collateralToken)) return 0;
@@ -181,6 +245,13 @@ contract MorphoMoneyMarket {
         return MathLib.apy({ rate: sRate, perSeconds: 1 });
     }
 
+    /**
+     * @notice Calculates the borrow APY for a token in a Morpho Blue market.
+     * @param token The loan token of the market.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return The borrow APY in WAD.
+     */
     function borrowRate(IERC20 token, MorphoMarketId marketId, IMorpho morpho) public view returns (uint256) {
         MarketParams memory params = morpho.idToMarketParams(marketId);
         require(address(token) == address(params.loanToken), InvalidToken(token));

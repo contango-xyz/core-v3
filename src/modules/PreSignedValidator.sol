@@ -25,11 +25,23 @@ contract PreSignedValidator is ERC7579StatelessValidator {
         return moduleTypeId == MODULE_TYPE_VALIDATOR;
     }
 
+    /**
+     * @notice Approves a message hash for a given account.
+     * @dev If `permanent` is set to true, the approval is stored in persistent state.
+     * If `permanent` is set to false, it's stored in transient storage for the current transaction.
+     * @param hash The hash to approve.
+     * @param permanent Whether to store the approval permanently.
+     */
     function approveHash(bytes32 hash, bool permanent) external {
         _sign(msg.sender, hash, permanent, true);
         emit HashSigned(msg.sender, hash);
     }
 
+    /**
+     * @notice Revokes a previously approved hash.
+     * @param hash The hash to revoke.
+     * @param permanent Whether the revocation is for persistent or transient state.
+     */
     function revokeHash(bytes32 hash, bool permanent) external {
         _sign(msg.sender, hash, permanent, false);
         emit HashRevoked(msg.sender, hash);
@@ -47,6 +59,13 @@ contract PreSignedValidator is ERC7579StatelessValidator {
         return isSigned(abi.decode(data, (address)), hash);
     }
 
+    /**
+     * @notice Checks whether a hash has been approved for a given account.
+     * @dev Considers both transient and persistent approval states.
+     * @param account The account to check for.
+     * @param hash The hash to check.
+     * @return True if the hash is approved, false otherwise.
+     */
     function isSigned(address account, bytes32 hash) public view returns (bool) {
         return IS_SIGNED.readAddressBytes32BoolMapping(account, hash) || _isSigned[account][hash];
     }

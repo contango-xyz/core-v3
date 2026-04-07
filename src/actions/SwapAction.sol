@@ -20,6 +20,19 @@ contract SwapAction {
     error EmptySwapArray();
     error OffsetsRequired();
 
+    /**
+     * @notice Data for a single swap execution.
+     * @param tokenToSell The asset to be sold.
+     * @param amountIn The amount to sell. Use `ACCOUNT_BALANCE` for the entire balance.
+     * @param tokenToBuy The asset to be bought.
+     * @param minAmountOut The minimum acceptable amount of tokens to buy.
+     * @param router The address to call for the swap (e.g., Uniswap router).
+     * @param spender The address to approve `tokenToSell` for (usually the same as `router`).
+     * @param swapBytes The encoded calldata for the `router` call.
+     * @param spotMarketName A human-readable name for the market (for logging).
+     * @param offsets Byte offsets in `swapBytes` where the `amountIn` should be injected.
+     * @dev See `SwapAction.t.sol` for encoding examples.
+     */
     struct Swap {
         IERC20 tokenToSell;
         uint256 amountIn;
@@ -32,6 +45,14 @@ contract SwapAction {
         uint256[] offsets;
     }
 
+    /**
+     * @notice Executes a single swap.
+     * @dev Injects `swap.amountIn` into `swap.swapBytes` at the specified `offsets` before calling the router.
+     * @param swap The swap configuration.
+     * @return amountIn_ The actual amount sold.
+     * @return amountOut_ The actual amount bought.
+     * @custom:example `executeSwap(Swap({ ..., swapBytes: abi.encodeCall(Router.swap, (...)), offsets: [4+32] }))`
+     */
     function executeSwap(Swap memory swap) public returns (uint256 amountIn_, uint256 amountOut_) {
         (amountIn_, amountOut_) = _executeSwap(swap, swap.amountIn);
         emit SwapExecuted(swap.tokenToSell, swap.tokenToBuy, amountIn_, amountOut_);
@@ -53,6 +74,7 @@ contract SwapAction {
         swap.tokenToSell.forceApprove(swap.spender, amountInArg);
 
         uint256 balanceBefore = swap.tokenToBuy.myBalance();
+        // Executes the swap by calling the `router` with the encoded `swapBytes`.
         swap.router.functionCall(swap.swapBytes);
         amountOut_ = swap.tokenToBuy.myBalance() - balanceBefore;
 
