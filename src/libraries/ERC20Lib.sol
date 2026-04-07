@@ -59,14 +59,14 @@ library ERC20Lib {
 
     /**
      * @notice Deposits native token (ETH) into WETH and transfers it to the destination.
+     * @dev Reuses the same transfer input validation as ERC20 transfers, with `msg.sender` as payer.
      * @param token The WETH contract.
      * @param amount The amount of native token to deposit.
      * @param to The destination address.
      * @return amountTransferred The amount of tokens deposited and transferred.
      */
     function depositNative(IWETH9 token, uint256 amount, address to) internal returns (uint256 amountTransferred) {
-        if (!_validAmount(amount)) return 0;
-        _validDestination(to);
+        if (_validateTransferOutInputs(msg.sender, to, amount)) return 0;
         uint256 balance = address(this).balance;
         require(balance >= amount, InsufficientNativeBalance(balance, amount));
 
@@ -79,14 +79,14 @@ library ERC20Lib {
 
     /**
      * @notice Withdraws native token (ETH) from WETH and transfers it to the destination.
+     * @dev Reuses the same transfer input validation as ERC20 transfers, with `msg.sender` as payer.
      * @param token The WETH contract.
      * @param to The destination address.
      * @param amount The amount of native token to withdraw.
      * @return amountTransferred The amount of tokens withdrawn and transferred.
      */
     function transferOutNative(IWETH9 token, address payable to, uint256 amount) internal returns (uint256 amountTransferred) {
-        if (!_validAmount(amount)) return 0;
-        _validDestination(to);
+        if (_validateTransferOutInputs(msg.sender, to, amount)) return 0;
         uint256 balance = token.balanceOf(address(this));
         require(balance >= amount, InsufficientBalance(token, balance, amount));
 
@@ -107,16 +107,39 @@ library ERC20Lib {
      * @return amountTransferred The amount of tokens transferred.
      */
     function transferOut(IERC20 token, address payer, address to, uint256 amount) internal returns (uint256 amountTransferred) {
-        if (!_validAmount(amount)) return 0;
-        _validPayer(payer);
-        _validDestination(to);
-        if (payer == to) return amount;
+        (bool shouldReturn, uint256 validatedAmount) = _validateTransferOut(payer, to, amount);
+        if (shouldReturn) return validatedAmount;
         return _transferOut(token, payer, to, amount);
     }
 
     function _transferOut(IERC20 token, address payer, address to, uint256 amount) internal returns (uint256 amountTransferred) {
         payer == address(this) ? token.safeTransfer(to, amount) : token.safeTransferFrom(payer, to, amount);
         return amount;
+    }
+
+    /**
+     * @notice Validates transfer inputs shared by all transfer-out entry points.
+     * @dev Returns true when `amount == 0` so callers can preserve no-op semantics.
+     */
+    function _validateTransferOutInputs(address payer, address to, uint256 amount) private pure returns (bool shouldReturnZero) {
+        if (!_validAmount(amount)) return true;
+        _validPayer(payer);
+        _validDestination(to);
+        return false;
+    }
+
+    /**
+     * @notice Validates transfer-out inputs and same-address no-op behavior.
+     * @dev Builds on `_validateTransferOutInputs` and applies `payer == to` short-circuit used by ERC20 transfer paths.
+     */
+    function _validateTransferOut(address payer, address to, uint256 amount)
+        private
+        pure
+        returns (bool shouldReturn, uint256 amountTransferred)
+    {
+        if (_validateTransferOutInputs(payer, to, amount)) return (true, 0);
+        if (payer == to) return (true, amount);
+        return (false, 0);
     }
 
     /**
@@ -201,10 +224,8 @@ library ERC20Lib {
         internal
         returns (uint256 amountTransferred)
     {
-        if (!_validAmount(amount)) return 0;
-        _validPayer(from);
-        _validDestination(to);
-        if (from == to) return amount;
+        (bool shouldReturn, uint256 validatedAmount) = _validateTransferOut(from, to, amount);
+        if (shouldReturn) return validatedAmount;
         if (permit.version == 1) {
             applyPermit(token, permit, from, address(this));
             amountTransferred = transferOut(token, from, to, amount);
@@ -217,7 +238,7 @@ library ERC20Lib {
 
     /**
      * @notice Transfers tokens from a payer to a destination, optionally using Permit2.
-     * @dev When `usePermit2` is true, it uses the standard `transferFrom` of the Permit2 contract.
+     * @dev Reuses shared transfer input validation before branching. When `usePermit2` is true, it uses Permit2 `transferFrom`.
      * @param token The ERC20 token to transfer.
      * @param from The address to transfer tokens from.
      * @param to The destination address.
@@ -229,6 +250,8 @@ library ERC20Lib {
         internal
         returns (uint256 amountTransferred)
     {
+        (bool shouldReturn, uint256 validatedAmount) = _validateTransferOut(from, to, amount);
+        if (shouldReturn) return validatedAmount;
         if (usePermit2) {
             PERMIT2.transferFrom({ from: from, to: to, amount: amount.toUint160(), token: token });
             amountTransferred = amount;
