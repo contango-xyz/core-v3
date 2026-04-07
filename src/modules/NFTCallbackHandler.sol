@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { MODULE_TYPE_FALLBACK } from "@openzeppelin/contracts/interfaces/draft-IERC7579.sol";
+import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
 import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
 
@@ -62,7 +63,8 @@ contract NFTCallbackHandler is ERC7579Module, IERC721Receiver, IERC1155Receiver 
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId;
+        return interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
+            || interfaceId == type(IERC1155Receiver).interfaceId;
     }
 
 }
