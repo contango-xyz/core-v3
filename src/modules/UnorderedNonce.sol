@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 abstract contract UnorderedNonce {
 
     // ================================ Taken from Permit2 ================================
-    // https://github.com/Uniswap/permit2/blob/main/src/SignatureTransfer.sol
+    // https://github.com/Uniswap/permit2/blob/0x000000000022D473030F116dDEE9F6B43aC78BA3/src/SignatureTransfer.sol
 
     error InvalidNonce();
 
