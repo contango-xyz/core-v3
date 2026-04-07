@@ -49,6 +49,7 @@ contract FlashLoanAction is
     using Solarray for *;
 
     bytes32 private constant ERC3156_CALLBACK_RESULT = keccak256("ERC3156FlashBorrower.onFlashLoan");
+    error FlashLoanFailed();
 
     // ================================================ ERC7399 ================================================
 
@@ -90,7 +91,7 @@ contract FlashLoanAction is
     function flashLoanERC3156(IERC3156FlashLender provider, IERC20 token, uint256 amount, bytes calldata data, address fundsReceiver)
         public
     {
-        provider.flashLoan(this, token, amount, abi.encodePacked(fundsReceiver, token, amount, data));
+        require(provider.flashLoan(this, token, amount, abi.encodePacked(fundsReceiver, token, amount, data)), FlashLoanFailed());
     }
 
     /**

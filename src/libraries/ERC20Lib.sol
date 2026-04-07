@@ -65,7 +65,7 @@ library ERC20Lib {
      * @return amountTransferred The amount of tokens deposited and transferred.
      */
     function depositNative(IWETH9 token, uint256 amount, address to) internal returns (uint256 amountTransferred) {
-        _validAmount(amount);
+        if (!_validAmount(amount)) return 0;
         _validDestination(to);
         uint256 balance = address(this).balance;
         require(balance >= amount, InsufficientNativeBalance(balance, amount));
@@ -85,7 +85,7 @@ library ERC20Lib {
      * @return amountTransferred The amount of tokens withdrawn and transferred.
      */
     function transferOutNative(IWETH9 token, address payable to, uint256 amount) internal returns (uint256 amountTransferred) {
-        _validAmount(amount);
+        if (!_validAmount(amount)) return 0;
         _validDestination(to);
         uint256 balance = token.balanceOf(address(this));
         require(balance >= amount, InsufficientBalance(token, balance, amount));

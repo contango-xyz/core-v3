@@ -31,20 +31,26 @@ contract PreSignedValidator is ERC7579StatelessValidator {
      * If `permanent` is set to false, it's stored in transient storage for the current transaction.
      * @param hash The hash to approve.
      * @param permanent Whether to store the approval permanently.
+     * @return changed True if the signed state changed, false if it was already approved.
      */
-    function approveHash(bytes32 hash, bool permanent) external {
-        _sign(msg.sender, hash, permanent, true);
+    function approveHash(bytes32 hash, bool permanent) external returns (bool changed) {
+        changed = _sign(msg.sender, hash, permanent, true);
+        if (!changed) return false;
         emit HashSigned(msg.sender, hash);
+        return true;
     }
 
     /**
      * @notice Revokes a previously approved hash.
      * @param hash The hash to revoke.
      * @param permanent Whether the revocation is for persistent or transient state.
+     * @return changed True if the signed state changed, false if it was already revoked.
      */
-    function revokeHash(bytes32 hash, bool permanent) external {
-        _sign(msg.sender, hash, permanent, false);
+    function revokeHash(bytes32 hash, bool permanent) external returns (bool changed) {
+        changed = _sign(msg.sender, hash, permanent, false);
+        if (!changed) return false;
         emit HashRevoked(msg.sender, hash);
+        return true;
     }
 
     function validateUserOp(PackedUserOperation calldata userOp, bytes32 userOpHash) external view override returns (uint256) {
@@ -70,9 +76,12 @@ contract PreSignedValidator is ERC7579StatelessValidator {
         return IS_SIGNED.readAddressBytes32BoolMapping(account, hash) || _isSigned[account][hash];
     }
 
-    function _sign(address account, bytes32 hash, bool permanent, bool signed) internal {
+    function _sign(address account, bytes32 hash, bool permanent, bool signed) internal returns (bool changed) {
+        if (isSigned(account, hash) == signed) return false;
+
         if (permanent) _isSigned[account][hash] = signed;
         else IS_SIGNED.writeAddressBytes32BoolMapping(account, hash, signed);
+        return true;
     }
 
 }

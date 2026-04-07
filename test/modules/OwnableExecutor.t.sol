@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { BaseTest } from "../BaseTest.t.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { ERC7579Utils, ModeSelector, ModePayload } from "@openzeppelin/contracts/account/utils/draft-ERC7579Utils.sol";
 import { IERC7579Execution, MODULE_TYPE_EXECUTOR, Execution } from "@openzeppelin/contracts/interfaces/draft-IERC7579.sol";
 
@@ -86,6 +87,23 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         assertEq(ownableExecutor.getOwners(account)[1], otherOwner);
     }
 
+    function test_AddOwner_DuplicateNoop() public {
+        vm.prank(owner);
+        ownableExecutor.addOwner(account, otherOwner);
+        uint256 ownersBefore = ownableExecutor.getOwners(account).length;
+
+        vm.recordLogs();
+        vm.prank(owner);
+        ownableExecutor.addOwner(account, otherOwner);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 ownerAddedSig = keccak256("OwnerAdded(address,address)");
+        for (uint256 i = 0; i < entries.length; i++) {
+            assertTrue(entries[i].topics[0] != ownerAddedSig, "unexpected OwnerAdded");
+        }
+        assertEq(ownableExecutor.getOwners(account).length, ownersBefore);
+    }
+
     function test_RevertWhen_NonOwnerAddsOwner() public {
         vm.prank(otherOwner);
         vm.expectRevert(abi.encodeWithSelector(OwnableExecutor.Unauthorized.selector, account, otherOwner));
@@ -103,6 +121,20 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         ownableExecutor.removeOwner(otherOwner);
 
         assertFalse(ownableExecutor.isOwner(account, otherOwner));
+    }
+
+    function test_RemoveOwner_NonExistentNoop() public {
+        vm.recordLogs();
+        vm.prank(address(account));
+        ownableExecutor.removeOwner(otherOwner);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 ownerRemovedSig = keccak256("OwnerRemoved(address,address)");
+        for (uint256 i = 0; i < entries.length; i++) {
+            assertTrue(entries[i].topics[0] != ownerRemovedSig, "unexpected OwnerRemoved");
+        }
+        assertEq(ownableExecutor.getOwners(account).length, 1);
+        assertTrue(ownableExecutor.isOwner(account, owner));
     }
 
     function test_RevertWhen_RemovingLastOwner() public {

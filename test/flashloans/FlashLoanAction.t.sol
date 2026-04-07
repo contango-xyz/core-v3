@@ -16,7 +16,7 @@ import { PreSignedValidator } from "../../src/modules/PreSignedValidator.sol";
 import { FlashLoanAction } from "../../src/flashloan/FlashLoanAction.sol";
 import { TokenAction } from "../../src/actions/TokenAction.sol";
 import { IERC7399 } from "../../src/flashloan/dependencies/IERC7399.sol";
-import { IERC3156FlashLender } from "../../src/flashloan/dependencies/IERC3156.sol";
+import { IERC3156FlashLender, IERC3156FlashBorrower } from "../../src/flashloan/dependencies/IERC3156.sol";
 import { IPoolAddressesProvider } from "../../src/moneymarkets/aave/dependencies/IPoolAddressesProvider.sol";
 import { IFlashLoaner } from "../../src/flashloan/dependencies/Balancer.sol";
 import { IMorpho } from "../../src/moneymarkets/morpho/dependencies/IMorpho.sol";
@@ -121,6 +121,12 @@ contract FlashLoanActionTest is BaseTest {
 
         vm.prank(owner);
         ownableExecutor.executeActions(IERC7579Execution(account), actions.pack());
+    }
+
+    function test_RevertWhen_FlashLoanERC3156ReturnsFalse() public {
+        MockERC3156LenderReturnsFalse lender = new MockERC3156LenderReturnsFalse();
+        vm.expectRevert(FlashLoanAction.FlashLoanFailed.selector);
+        flashLoanAction.flashLoanERC3156(lender, dai, 100e18, "", account);
     }
 
     function test_FlashLoanAave() public {
@@ -927,6 +933,22 @@ contract FlashLoanActionTest is BaseTest {
 
         assertEqDecimal(usdc.balanceOf(account), 0, 6, "USDC balance should be 0");
         assertEqDecimal(dai.balanceOf(account), 993.928935051802237306e18, 18, "DAI balance should be 993.928935051802237306");
+    }
+
+}
+
+contract MockERC3156LenderReturnsFalse is IERC3156FlashLender {
+
+    function maxFlashLoan(IERC20) external pure returns (uint256) {
+        return type(uint256).max;
+    }
+
+    function flashFee(IERC20, uint256) external pure returns (uint256) {
+        return 0;
+    }
+
+    function flashLoan(IERC3156FlashBorrower, IERC20, uint256, bytes calldata) external pure returns (bool) {
+        return false;
     }
 
 }
