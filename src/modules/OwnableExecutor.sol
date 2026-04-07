@@ -112,8 +112,15 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         emit ModuleUninstalled(address(account), data);
     }
 
+    /**
+     * @notice Adds a new owner for the calling account.
+     * @dev Requires the module to be installed on `msg.sender`.
+     * @param owner The owner address to add.
+     */
     function addOwner(address owner) external {
-        _addOwner(IERC7579Execution(msg.sender), owner);
+        IERC7579Execution account = IERC7579Execution(msg.sender);
+        require(accountOwners[account].length() > 0, NotInstalled());
+        _addOwner(account, owner);
     }
 
     /**
@@ -126,6 +133,11 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         _addOwner(account, owner);
     }
 
+    /**
+     * @notice Removes an owner from the calling account.
+     * @dev Requires at least one owner to remain after removal.
+     * @param owner The owner address to remove.
+     */
     function removeOwner(address owner) external {
         IERC7579Execution account = IERC7579Execution(msg.sender);
         _removeOwner(account, owner);

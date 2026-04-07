@@ -88,6 +88,12 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         assertEq(ownableExecutor.getOwners(account)[1], otherOwner);
     }
 
+    function test_RevertWhen_AddOwnerBeforeInstall() public {
+        vm.prank(address(account));
+        vm.expectRevert(OwnableExecutor.NotInstalled.selector);
+        freshExecutor.addOwner(otherOwner);
+    }
+
     function test_AddOwner_DuplicateNoop() public {
         vm.prank(owner);
         ownableExecutor.addOwner(account, otherOwner);
