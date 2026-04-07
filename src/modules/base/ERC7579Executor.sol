@@ -8,7 +8,7 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { ActionExecutor } from "../ActionExecutor.sol";
 import { ERC7579Module } from "./ERC7579Module.sol";
 import { ERC7579Lib } from "./ERC7579Utils.sol";
-import { PackedAction } from "../../types/Action.sol";
+import { ActionResult, PackedAction } from "../../types/Action.sol";
 
 abstract contract ERC7579Executor is ERC7579Module {
 
@@ -103,8 +103,11 @@ abstract contract ERC7579Executor is ERC7579Module {
      * @param packedAction The packed action data.
      * @return returnData The return data.
      */
-    function _executeAction(IERC7579Execution account, PackedAction memory packedAction) internal returns (bytes memory returnData) {
-        return _delegate(account, abi.encodePacked(ACTION_EXECUTOR, abi.encodeCall(ActionExecutor.executeSinglePacked, packedAction)));
+    function _executeAction(IERC7579Execution account, PackedAction memory packedAction) internal returns (ActionResult memory returnData) {
+        returnData = abi.decode(
+            _delegate(account, abi.encodePacked(ACTION_EXECUTOR, abi.encodeCall(ActionExecutor.executeSinglePacked, packedAction))),
+            (ActionResult)
+        );
     }
 
     /**
@@ -113,10 +116,13 @@ abstract contract ERC7579Executor is ERC7579Module {
      * @param packedActions The array of packed actions.
      * @return returnData The array of return data.
      */
-    function _executeActions(IERC7579Execution account, PackedAction[] memory packedActions) internal returns (bytes[] memory returnData) {
+    function _executeActions(IERC7579Execution account, PackedAction[] memory packedActions)
+        internal
+        returns (ActionResult[] memory returnData)
+    {
         return abi.decode(
             _delegate(account, abi.encodePacked(ACTION_EXECUTOR, abi.encodeCall(ActionExecutor.executeBatchPacked, packedActions))),
-            (bytes[])
+            (ActionResult[])
         );
     }
 

@@ -8,6 +8,7 @@ import { IERC7579Execution, MODULE_TYPE_EXECUTOR, Execution } from "@openzeppeli
 
 import { OwnableExecutor, OwnableExecutorEvents } from "../../src/modules/OwnableExecutor.sol";
 import { ActionExecutor } from "../../src/modules/ActionExecutor.sol";
+import { ActionResult, PackedAction } from "../../src/types/Action.sol";
 
 contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
 
@@ -338,6 +339,34 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         assertEq(abi.decode(returnData[1], (uint256)), 24);
     }
 
+    function test_ExecuteActionsReturnsSuccessFlags() public {
+        MockTarget target = new MockTarget();
+        MockReverter reverter = new MockReverter();
+
+        PackedAction[] memory actions = new PackedAction[](2);
+        actions[0] = PackedAction({
+            data: abi.encodePacked(address(target), uint96(0), bytes1(0x00), bytes1(0x00), abi.encodeCall(MockTarget.getValue, ()))
+        });
+        actions[1] = PackedAction({
+            data: abi.encodePacked(address(reverter), uint96(0), bytes1(0x00), bytes1(0x01), abi.encodeCall(MockReverter.fail, ()))
+        });
+
+        vm.prank(owner);
+        ActionResult[] memory returnData = ownableExecutor.executeActions(account, actions);
+
+        assertEq(returnData.length, 2);
+        assertTrue(returnData[0].success);
+        assertEq(abi.decode(returnData[0].data, (uint256)), 0);
+        assertFalse(returnData[1].success);
+        bytes memory failureData = returnData[1].data;
+        assertGe(failureData.length, 4);
+        bytes4 selector;
+        assembly {
+            selector := mload(add(failureData, 32))
+        }
+        assertEq(selector, MockReverter.ExpectedFailure.selector);
+    }
+
 }
 
 // Helper contracts for testing execution methods
@@ -366,6 +395,16 @@ contract MockDelegateTarget {
 
     function storageValue() external view returns (uint256) {
         return _storageValue;
+    }
+
+}
+
+contract MockReverter {
+
+    error ExpectedFailure();
+
+    function fail() external pure {
+        revert ExpectedFailure();
     }
 
 }

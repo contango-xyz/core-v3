@@ -9,6 +9,11 @@ struct Action {
     bool allowFailure;
 }
 
+struct ActionResult {
+    bool success;
+    bytes data;
+}
+
 /// @notice The packed action data is tightly packed in the following format:
 /// @notice - [0:20]   target address (20 bytes)
 /// @notice - [20:32]  value as uint96 (12 bytes)

@@ -10,7 +10,7 @@ import { ActionExecutor } from "./ActionExecutor.sol";
 import { UnorderedNonce } from "./UnorderedNonce.sol";
 import { ERC7579Executor } from "./base/ERC7579Executor.sol";
 import { ERC7579Lib } from "./base/ERC7579Utils.sol";
-import { PackedAction } from "../types/Action.sol";
+import { ActionResult, PackedAction } from "../types/Action.sol";
 
 contract ERC1271Executor is EIP712, ERC7579Executor, UnorderedNonce {
 
@@ -33,7 +33,7 @@ contract ERC1271Executor is EIP712, ERC7579Executor, UnorderedNonce {
      * @param data The calldata to be executed.
      * @param signature The ERC-1271 signature for validation.
      * @param nonce The unordered nonce for replay protection.
-     * @return returnData The return data from the execution.
+     * @return returnData The execution result.
      * @custom:example `execute(account, token, abi.encodeCall(IERC20.transfer, (...)), signature, nonce)`
      */
     function execute(IERC7579Execution account, address target, bytes calldata data, bytes calldata signature, uint256 nonce)
@@ -98,7 +98,7 @@ contract ERC1271Executor is EIP712, ERC7579Executor, UnorderedNonce {
     function executeAction(IERC7579Execution account, PackedAction calldata action, bytes calldata signature, uint256 nonce)
         external
         payable
-        returns (bytes memory returnData)
+        returns (ActionResult memory returnData)
     {
         _validateSignature(account, action.data, signature, nonce);
         return _executeAction(account, action);
@@ -110,12 +110,12 @@ contract ERC1271Executor is EIP712, ERC7579Executor, UnorderedNonce {
      * @param actions The array of packed action data.
      * @param signature The ERC-1271 signature for validation.
      * @param nonce The unordered nonce for replay protection.
-     * @return returnData The array of return data from the executions.
+     * @return returnData The array of execution results from the actions.
      */
     function executeActions(IERC7579Execution account, PackedAction[] calldata actions, bytes calldata signature, uint256 nonce)
         external
         payable
-        returns (bytes[] memory returnData)
+        returns (ActionResult[] memory returnData)
     {
         _validateSignature(account, abi.encode(actions), signature, nonce);
         return _executeActions(account, actions);

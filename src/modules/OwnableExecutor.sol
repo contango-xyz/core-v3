@@ -7,7 +7,7 @@ import { ERC7579Utils } from "@openzeppelin/contracts/account/utils/draft-ERC757
 
 import { ERC7579Executor } from "./base/ERC7579Executor.sol";
 import { ActionExecutor } from "./ActionExecutor.sol";
-import { PackedAction } from "../types/Action.sol";
+import { ActionResult, PackedAction } from "../types/Action.sol";
 
 interface OwnableExecutorEvents {
 
@@ -140,7 +140,7 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
      * @param account The account to execute the call from.
      * @param target The target address of the call.
      * @param data The calldata to be executed.
-     * @return returnData The return data from the execution.
+     * @return returnData The execution result.
      * @custom:example `execute(account, token, abi.encodeCall(IERC20.transfer, (to, amount)))`
      */
     function execute(IERC7579Execution account, address target, bytes calldata data)
@@ -198,7 +198,7 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         external
         payable
         onlyOwner(account)
-        returns (bytes memory returnData)
+        returns (ActionResult memory returnData)
     {
         return _executeAction(account, action);
     }
@@ -208,13 +208,13 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
      * @dev Uses delegatecall to the ActionExecutor.
      * @param account The account to execute the actions from.
      * @param actions The array of packed action data.
-     * @return returnData The array of return data from the executions.
+     * @return returnData The array of execution results from the actions.
      */
     function executeActions(IERC7579Execution account, PackedAction[] calldata actions)
         external
         payable
         onlyOwner(account)
-        returns (bytes[] memory returnData)
+        returns (ActionResult[] memory returnData)
     {
         return _executeActions(account, actions);
     }
