@@ -114,7 +114,9 @@ contract MorphoPositionLifecycleTest is AbstractPositionLifecycleTest {
     }
 
     function _supplyToMarket(Action[] storage actions, uint256 amount) internal virtual override {
-        actions.push(address(morphoMoneyMarket).delegateAction(abi.encodeCall(MorphoMoneyMarket.supply, (amount, base, marketId, morpho))));
+        actions.push(
+            address(morphoMoneyMarket).delegateAction(abi.encodeCall(MorphoMoneyMarket.supplyCollateral, (amount, base, marketId, morpho)))
+        );
     }
 
     function _borrowFromMarket(Action[] storage actions, uint256 amount) internal virtual override {
@@ -131,7 +133,7 @@ contract MorphoPositionLifecycleTest is AbstractPositionLifecycleTest {
     function _withdrawFromMarket(Action[] storage actions, uint256 amount) internal virtual override {
         actions.push(
             address(morphoMoneyMarket)
-                .delegateAction(abi.encodeCall(MorphoMoneyMarket.withdraw, (amount, base, holdingAccount, marketId, morpho)))
+                .delegateAction(abi.encodeCall(MorphoMoneyMarket.withdrawCollateral, (amount, base, holdingAccount, marketId, morpho)))
         );
     }
 

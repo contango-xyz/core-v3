@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { ACCOUNT_BALANCE, DEBT_BALANCE, COLLATERAL_BALANCE, RAY, WAD } from "../../constants.sol";
+import { ACCOUNT_BALANCE, DEBT_BALANCE, COLLATERAL_BALANCE, SUPPLIED_BALANCE, RAY, WAD } from "../../constants.sol";
 import { ERC20Lib } from "../../libraries/ERC20Lib.sol";
 
 import { IMorpho, MorphoMarketId, Market, Position, MarketParams } from "./dependencies/IMorpho.sol";
@@ -47,37 +47,48 @@ contract MorphoMoneyMarket {
     );
 
     /**
-     * @notice Supplies tokens to a Morpho Blue market.
-     * @dev If the token is the collateral token, it calls `supplyCollateral`.
-     * If the token is the loan token, it calls `supply`, which earns interest but may be subject to withdrawal limits.
-     * @param amount The amount of tokens to supply. Use `ACCOUNT_BALANCE` for the entire balance.
-     * @param token The ERC20 token to supply.
+     * @notice Supplies collateral assets to a Morpho Blue market.
+     * @param amount The amount of collateral to supply. Use `ACCOUNT_BALANCE` for the full token balance.
+     * @param token The collateral token of the market.
      * @param marketId The ID of the Morpho Blue market.
      * @param morpho The Morpho Blue contract.
-     * @return supplied The actual amount of tokens supplied.
+     * @return supplied The amount of collateral supplied.
      */
-    function supply(uint256 amount, IERC20 token, MorphoMarketId marketId, IMorpho morpho) public returns (uint256 supplied) {
+    function supplyCollateral(uint256 amount, IERC20 token, MorphoMarketId marketId, IMorpho morpho) public returns (uint256 supplied) {
         if (amount == ACCOUNT_BALANCE) amount = token.myBalance();
         if (amount == 0) return 0;
 
         MarketParams memory marketParams = morpho.idToMarketParams(marketId);
+        require(address(token) == address(marketParams.collateralToken), InvalidToken(token));
 
         token.forceApprove(address(morpho), amount);
+        morpho.supplyCollateral({ marketParams: marketParams, assets: amount, onBehalf: address(this), data: "" });
+        supplied = amount;
 
-        if (address(token) == address(marketParams.collateralToken)) {
-            morpho.supplyCollateral({ marketParams: marketParams, assets: amount, onBehalf: address(this), data: "" });
-            supplied = amount;
+        emit MorphoSupplyCollateral(morpho, marketId, token, amount);
+    }
 
-            emit MorphoSupplyCollateral(morpho, marketId, token, amount);
-        } else if (address(token) == address(marketParams.loanToken)) {
-            (uint256 assetsSupplied, uint256 sharesSupplied) =
-                morpho.supply({ marketParams: marketParams, assets: amount, shares: 0, onBehalf: address(this), data: "" });
+    /**
+     * @notice Supplies loan-token liquidity to a Morpho Blue market.
+     * @param amount The amount of loan token to supply. Use `ACCOUNT_BALANCE` for the full token balance.
+     * @param token The loan token of the market.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return supplied The amount of loan token supplied.
+     */
+    function supplyLoan(uint256 amount, IERC20 token, MorphoMarketId marketId, IMorpho morpho) public returns (uint256 supplied) {
+        if (amount == ACCOUNT_BALANCE) amount = token.myBalance();
+        if (amount == 0) return 0;
 
-            supplied = assetsSupplied;
-            emit MorphoSupply(morpho, marketId, token, assetsSupplied, sharesSupplied, morpho.supplyIndex(marketId));
-        } else {
-            revert InvalidToken(token);
-        }
+        MarketParams memory marketParams = morpho.idToMarketParams(marketId);
+        require(address(token) == address(marketParams.loanToken), InvalidToken(token));
+
+        token.forceApprove(address(morpho), amount);
+        (uint256 assetsSupplied, uint256 sharesSupplied) =
+            morpho.supply({ marketParams: marketParams, assets: amount, shares: 0, onBehalf: address(this), data: "" });
+
+        supplied = assetsSupplied;
+        emit MorphoSupply(morpho, marketId, token, assetsSupplied, sharesSupplied, morpho.supplyIndex(marketId));
     }
 
     /**
@@ -140,40 +151,63 @@ contract MorphoMoneyMarket {
     }
 
     /**
-     * @notice Withdraws tokens from a Morpho Blue market.
-     * @dev If the token is the collateral token, it calls `withdrawCollateral`.
-     * If the token is the loan token, it calls `withdraw`.
-     * @param amount The amount of tokens to withdraw. Use `COLLATERAL_BALANCE` for all.
-     * @param token The ERC20 token to withdraw.
-     * @param to The address that will receive the withdrawn tokens.
+     * @notice Withdraws collateral assets from a Morpho Blue market.
+     * @param amount The amount of collateral to withdraw. Use `COLLATERAL_BALANCE` to withdraw all.
+     * @param token The collateral token of the market.
+     * @param to The receiver of withdrawn collateral.
      * @param marketId The ID of the Morpho Blue market.
      * @param morpho The Morpho Blue contract.
-     * @return withdrawn The actual amount of tokens withdrawn.
+     * @return withdrawn The amount of collateral withdrawn.
      */
-    function withdraw(uint256 amount, IERC20 token, address to, MorphoMarketId marketId, IMorpho morpho)
+    function withdrawCollateral(uint256 amount, IERC20 token, address to, MorphoMarketId marketId, IMorpho morpho)
         public
         returns (uint256 withdrawn)
     {
         uint256 balance = collateralBalance(address(this), token, marketId, morpho);
-        if (amount == COLLATERAL_BALANCE) amount = balance;
+        if (amount == COLLATERAL_BALANCE || amount > balance) amount = balance;
         if (amount == 0) return 0;
 
         MarketParams memory marketParams = morpho.idToMarketParams(marketId);
+        require(address(token) == address(marketParams.collateralToken), InvalidToken(token));
 
-        if (address(token) == address(marketParams.collateralToken)) {
-            morpho.withdrawCollateral({ marketParams: marketParams, assets: amount, onBehalf: address(this), receiver: to });
-            withdrawn = amount;
+        morpho.withdrawCollateral({ marketParams: marketParams, assets: amount, onBehalf: address(this), receiver: to });
+        withdrawn = amount;
 
-            emit MorphoWithdrawCollateral(morpho, marketId, token, amount, to);
-        } else if (address(token) == address(marketParams.loanToken)) {
-            (uint256 assetsWithdrawn, uint256 sharesWithdrawn) =
-                morpho.withdraw({ marketParams: marketParams, assets: amount, shares: 0, onBehalf: address(this), receiver: to });
+        emit MorphoWithdrawCollateral(morpho, marketId, token, amount, to);
+    }
 
-            withdrawn = assetsWithdrawn;
-            emit MorphoWithdraw(morpho, marketId, token, assetsWithdrawn, sharesWithdrawn, morpho.supplyIndex(marketId), to);
-        } else {
-            revert InvalidToken(token);
+    /**
+     * @notice Withdraws loan-token supply from a Morpho Blue market.
+     * @dev Uses share-based withdrawal to minimize rounding dust on full or partial withdrawals.
+     * @param amount The desired amount of loan token to withdraw. Use `SUPPLIED_BALANCE` to withdraw all.
+     * @param token The loan token of the market.
+     * @param to The receiver of withdrawn loan tokens.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return withdrawn The amount of loan token withdrawn.
+     */
+    function withdrawLoan(uint256 amount, IERC20 token, address to, MorphoMarketId marketId, IMorpho morpho)
+        public
+        returns (uint256 withdrawn)
+    {
+        MarketParams memory marketParams = morpho.idToMarketParams(marketId);
+        require(address(token) == address(marketParams.loanToken), InvalidToken(token));
+
+        uint256 shares = morpho.position(marketId, address(this)).supplyShares;
+        if (amount != SUPPLIED_BALANCE) {
+            Market memory market = morpho.market(marketId);
+            uint256 maxAmount = shares.toAssetsDown(market.totalSupplyAssets, market.totalSupplyShares);
+            if (amount > maxAmount) amount = maxAmount;
+            if (amount == 0) return 0;
+            if (amount < maxAmount) shares = amount.toSharesDown(market.totalSupplyAssets, market.totalSupplyShares);
         }
+        if (shares == 0) return 0;
+
+        (uint256 assetsWithdrawn, uint256 sharesWithdrawn) =
+            morpho.withdraw({ marketParams: marketParams, assets: 0, shares: shares, onBehalf: address(this), receiver: to });
+
+        withdrawn = assetsWithdrawn;
+        emit MorphoWithdraw(morpho, marketId, token, assetsWithdrawn, sharesWithdrawn, morpho.supplyIndex(marketId), to);
     }
 
     /**
@@ -208,6 +242,24 @@ contract MorphoMoneyMarket {
         require(address(token) == address(marketParams.collateralToken), InvalidToken(token));
 
         return morpho.position(marketId, account).collateral;
+    }
+
+    /**
+     * @notice Gets the withdrawable loan-token balance for an account.
+     * @dev Converts supply shares into assets using the current market totals.
+     * @param account The account to query.
+     * @param token The loan token of the market.
+     * @param marketId The ID of the Morpho Blue market.
+     * @param morpho The Morpho Blue contract.
+     * @return The withdrawable loan-token amount.
+     */
+    function loanBalance(address account, IERC20 token, MorphoMarketId marketId, IMorpho morpho) public view returns (uint256) {
+        MarketParams memory marketParams = morpho.idToMarketParams(marketId);
+        require(address(token) == address(marketParams.loanToken), InvalidToken(token));
+
+        Position memory position = morpho.position(marketId, account);
+        Market memory market = morpho.market(marketId);
+        return position.supplyShares.toAssetsDown(market.totalSupplyAssets, market.totalSupplyShares);
     }
 
     function oraclePrice(IERC20 token, MorphoMarketId marketId, IMorpho morpho) public view returns (uint256) {

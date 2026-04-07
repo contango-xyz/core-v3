@@ -194,7 +194,7 @@ contract MorphoMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
     using ActionLib for *;
     using SharesMathLib for *;
 
-    MorphoMarketId marketId = MorphoMarketId.wrap(0x6029eea874791e01e2f3ce361f2e08839cd18b1e26eea6243fa3e43fe8f6fa23);
+    MorphoMarketId marketId = MorphoMarketId.wrap(0xb374528d44b6ab6e0cecc87e0481f45d892f38baec90c1d318851969ec14ea5f);
     IMorpho morpho = IMorpho(0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb);
     address morphoMoneyMarket;
 
@@ -203,7 +203,7 @@ contract MorphoMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
         super.setUp();
 
         IERC20 wstETH = IERC20(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
-        IERC20 eUSD = IERC20(0xA0d69E286B938e21CBf7E51D71F6A4c8918f482F);
+        IERC20 sUSDS = IERC20(0xdC035D45d973E3EC169d2276DDab16f1e407384F);
         quoteAmount = 1000e18;
 
         morphoMoneyMarket = address(new MorphoMoneyMarket());
@@ -225,11 +225,11 @@ contract MorphoMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
             borrowLiquidity: this.borrowLiquidity
         });
 
-        super.setUp(wstETH, eUSD, moneyMarket);
+        super.setUp(wstETH, sUSDS, moneyMarket);
     }
 
     function supply(uint256 amount) external view returns (Action memory) {
-        return morphoMoneyMarket.delegateAction(abi.encodeCall(MorphoMoneyMarket.supply, (amount, base, marketId, morpho)));
+        return morphoMoneyMarket.delegateAction(abi.encodeCall(MorphoMoneyMarket.supplyCollateral, (amount, base, marketId, morpho)));
     }
 
     function borrow(uint256 amount) external view returns (Action memory) {
@@ -241,7 +241,10 @@ contract MorphoMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
     }
 
     function withdraw(uint256 amount) external view returns (Action memory) {
-        return morphoMoneyMarket.delegateAction(abi.encodeCall(MorphoMoneyMarket.withdraw, (amount, base, account, marketId, morpho)));
+        return
+            morphoMoneyMarket.delegateAction(
+                abi.encodeCall(MorphoMoneyMarket.withdrawCollateral, (amount, base, account, marketId, morpho))
+            );
     }
 
     function collateralBalance() external view returns (uint256) {
