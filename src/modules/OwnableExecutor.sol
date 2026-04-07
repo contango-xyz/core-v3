@@ -81,7 +81,7 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
      */
     function onInstall(bytes calldata data) external override {
         IERC7579Execution account = IERC7579Execution(msg.sender);
-        require(accountOwners[account].length() == 0, AlreadyInstalled());
+        require(!_isInstalled(msg.sender), AlreadyInstalled());
         require(data.length >= ADDR_SIZE, AtLeastOneOwner());
         require(data.length % ADDR_SIZE == 0, InvalidDataLength());
 
@@ -103,7 +103,7 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
      */
     function onUninstall(bytes calldata data) external override {
         IERC7579Execution account = IERC7579Execution(msg.sender);
-        require(accountOwners[account].length() > 0, NotInstalled());
+        require(_isInstalled(msg.sender), NotInstalled());
         EnumerableSet.AddressSet storage addressSet = accountOwners[account];
         uint256 length = addressSet.length();
         for (uint256 i = length; i > 0; i--) {
@@ -112,6 +112,12 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         emit ModuleUninstalled(address(account), data);
     }
 
+    function _isInstalled(address account) internal view override returns (bool) {
+        return accountOwners[IERC7579Execution(account)].length() > 0;
+    }
+
+    function _setInstalled(address, bool) internal override { }
+
     /**
      * @notice Adds a new owner for the calling account.
      * @dev Requires the module to be installed on `msg.sender`.
@@ -119,7 +125,7 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
      */
     function addOwner(address owner) external {
         IERC7579Execution account = IERC7579Execution(msg.sender);
-        require(accountOwners[account].length() > 0, NotInstalled());
+        require(_isInstalled(msg.sender), NotInstalled());
         _addOwner(account, owner);
     }
 
