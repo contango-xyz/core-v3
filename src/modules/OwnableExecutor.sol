@@ -25,7 +25,6 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
 
     error Unauthorized(IERC7579Execution account, address sender);
     error InvalidDataLength();
-    error AtLeastOneOwner();
     error CannotRemoveLastOwner();
     error AlreadyInstalled();
     error NotInstalled();
@@ -82,7 +81,6 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
     function onInstall(bytes calldata data) external override {
         IERC7579Execution account = IERC7579Execution(msg.sender);
         require(!_isInstalled(msg.sender), AlreadyInstalled());
-        require(data.length >= ADDR_SIZE, AtLeastOneOwner());
         require(data.length % ADDR_SIZE == 0, InvalidDataLength());
 
         uint256 numAddresses = data.length / ADDR_SIZE;

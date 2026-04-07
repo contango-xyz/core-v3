@@ -56,12 +56,6 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         assertEq(freshExecutor.getOwners(account)[1], otherOwner);
     }
 
-    function test_RevertWhen_InstallWithNoOwners() public {
-        vm.prank(address(account));
-        vm.expectRevert(OwnableExecutor.AtLeastOneOwner.selector);
-        freshExecutor.onInstall("");
-    }
-
     function test_RevertWhen_InstallWithInvalidLength() public {
         bytes memory data = abi.encodePacked(owner, hex"1234"); // Invalid length
         vm.prank(address(account));
