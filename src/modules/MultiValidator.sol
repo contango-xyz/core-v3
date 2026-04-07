@@ -45,7 +45,9 @@ contract MultiValidator is ERC7579StatelessValidator {
         return _validate(msg.sender, hash, signature) ? IERC1271.isValidSignature.selector : EIP_1271_VALIDATION_FAILED;
     }
 
-    function validateSignatureWithData(bytes32 hash, bytes calldata signature, bytes calldata) external view override returns (bool) { }
+    function validateSignatureWithData(bytes32 hash, bytes calldata signature, bytes calldata data) external view override returns (bool) {
+        return _validate(abi.decode(data, (address)), hash, signature);
+    }
 
     /**
      * @notice Internal validation logic for multi-intent signatures.

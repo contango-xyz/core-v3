@@ -125,6 +125,37 @@ contract MultiValidatorTest is BaseTest {
         erc1271Executor.execute(IERC7579Execution(rootAccount), address(target), callData2, signature, nonce + 2);
     }
 
+    function test_ValidateSignatureWithData_WhenValid_ReturnsTrue() public view {
+        bytes32 digest = keccak256("intent");
+
+        bytes32[] memory intents = new bytes32[](1);
+        intents[0] = digest;
+
+        bytes memory signature = _buildMultiSignature(intents);
+        bytes memory data = abi.encode(rootAccount);
+
+        assertTrue(multiValidator.validateSignatureWithData(digest, signature, data));
+    }
+
+    function test_ValidateSignatureWithData_WhenAccountDoesNotMatch_ReturnsFalse() public view {
+        bytes32 digest = keccak256("intent");
+
+        bytes32[] memory intents = new bytes32[](1);
+        intents[0] = digest;
+
+        bytes memory signature = _buildMultiSignature(intents);
+        bytes memory data = abi.encode(subAccount);
+
+        assertFalse(multiValidator.validateSignatureWithData(digest, signature, data));
+    }
+
+    function _buildMultiSignature(bytes32[] memory intents) internal view returns (bytes memory signature) {
+        bytes32 metaHash = keccak256(abi.encode(intents));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, metaHash.toEthSignedMessageHash());
+        MultiSignature memory multiSignature = MultiSignature({ intents: intents, signature: abi.encodePacked(ownableValidator, r, s, v) });
+        signature = abi.encode(multiSignature);
+    }
+
 }
 
 // Helper contracts
