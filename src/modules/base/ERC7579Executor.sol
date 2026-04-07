@@ -46,6 +46,7 @@ abstract contract ERC7579Executor is ERC7579Module {
     }
 
     function _delegate(IERC7579Execution account, bytes memory data) internal returns (bytes memory returnData) {
+        _forwardValue(address(account));
         return _executeFromExecutor(account, _delegate(), data)[0];
     }
 

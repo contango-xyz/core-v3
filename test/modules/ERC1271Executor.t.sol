@@ -108,6 +108,37 @@ contract ERC1271ExecutorTest is BaseTest {
         assertEq(value, 42);
     }
 
+    function test_DelegateWithValue() public {
+        MockDelegateTarget target = new MockDelegateTarget();
+
+        bytes memory accountData = address(target).encodeDelegate(abi.encodeCall(MockDelegateTarget.setStorageValue, (42)));
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
+        bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
+
+        vm.deal(caller, 1 ether);
+        vm.prank(caller);
+        erc1271Executor.delegate{ value: 0.4 ether }(
+            account, address(target), abi.encodeCall(MockDelegateTarget.setStorageValue, (42)), signature, nonce
+        );
+
+        assertEq(target.storageValue(), 0);
+
+        accountData = address(target).encodeDelegate(abi.encodeCall(MockDelegateTarget.storageValue, ()));
+        hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ++nonce);
+        (v, r, s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
+        signature = abi.encodePacked(ownableValidator, r, s, v);
+
+        vm.prank(caller);
+        uint256 value = abi.decode(
+            erc1271Executor.delegate(account, address(target), abi.encodeCall(MockDelegateTarget.storageValue, ()), signature, nonce),
+            (uint256)
+        );
+        assertEq(value, 42);
+        uint256 accBalance = address(account).balance;
+        assertEqDecimal(accBalance, 0.4 ether, 18);
+    }
+
     function test_ExecuteBatch() public {
         MockTarget target1 = new MockTarget();
         MockTarget target2 = new MockTarget();

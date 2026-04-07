@@ -169,6 +169,27 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         assertEq(value, 42);
     }
 
+    function test_DelegateWithValue() public {
+        // Setup a mock contract to delegate to
+        MockDelegateTarget target = new MockDelegateTarget();
+
+        vm.deal(owner, 1 ether);
+        vm.prank(owner);
+        ownableExecutor.delegate{ value: 0.4 ether }(account, address(target), abi.encodeCall(MockDelegateTarget.setStorageValue, (42)));
+
+        // Storage slot should be set in the account's context
+        assertEq(target.storageValue(), 0);
+
+        vm.prank(owner);
+        uint256 value =
+            abi.decode(ownableExecutor.delegate(account, address(target), abi.encodeCall(MockDelegateTarget.storageValue, ())), (uint256));
+
+        // Storage slot should be set in the account's context
+        assertEq(value, 42);
+        uint256 accBalance = address(account).balance;
+        assertEqDecimal(accBalance, 0.4 ether, 18);
+    }
+
     function test_ExecuteBatch() public {
         // Setup multiple calls
         MockTarget target1 = new MockTarget();
