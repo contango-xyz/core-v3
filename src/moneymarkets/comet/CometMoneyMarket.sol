@@ -22,6 +22,14 @@ contract CometMoneyMarket {
 
     error InvalidAsset(IERC20 asset);
 
+    /**
+     * @notice Supplies tokens to a Compound III (Comet) instance.
+     * @dev If the token is the base token, it earns interest. If it's a collateral token, it does not.
+     * @param amount The amount of tokens to supply. Use `ACCOUNT_BALANCE` for the entire balance.
+     * @param token The ERC20 token to supply.
+     * @param comet The Compound III instance.
+     * @return supplied The actual amount of tokens supplied.
+     */
     function supply(uint256 amount, IERC20 token, IComet comet) public returns (uint256 supplied) {
         if (amount == ACCOUNT_BALANCE) amount = token.myBalance();
         if (amount == 0) return 0;
@@ -41,6 +49,15 @@ contract CometMoneyMarket {
         }
     }
 
+    /**
+     * @notice Borrows tokens from a Compound III instance.
+     * @dev Borrowing in Compound III is done by withdrawing the base token if you have enough collateral.
+     * @param amount The amount of tokens to borrow.
+     * @param token The ERC20 token to borrow (must be the base token).
+     * @param to The address that will receive the borrowed tokens.
+     * @param comet The Compound III instance.
+     * @return borrowed The actual amount of tokens borrowed.
+     */
     function borrow(uint256 amount, IERC20 token, address to, IComet comet) public returns (uint256 borrowed) {
         if (amount == 0) return 0;
 
@@ -54,6 +71,14 @@ contract CometMoneyMarket {
         emit CometBorrow(comet, token, borrowed, sharesAfter - sharesBefore, comet.borrowIndex(), to);
     }
 
+    /**
+     * @notice Repays a borrow on a Compound III instance.
+     * @dev Repayment is done by supplying the base token.
+     * @param amount The amount of tokens to repay. Use `ACCOUNT_BALANCE` or `DEBT_BALANCE`.
+     * @param token The ERC20 token to repay (must be the base token).
+     * @param comet The Compound III instance.
+     * @return repaid The actual amount of tokens repaid.
+     */
     function repay(uint256 amount, IERC20 token, IComet comet) public returns (uint256 repaid) {
         if (amount == ACCOUNT_BALANCE) amount = token.myBalance();
         uint256 debt = debtBalance(address(this), token, comet);
@@ -71,6 +96,15 @@ contract CometMoneyMarket {
         emit CometRepay(comet, token, repaid, sharesBefore - sharesAfter, comet.borrowIndex());
     }
 
+    /**
+     * @notice Withdraws tokens from a Compound III instance.
+     * @dev Handles both base token withdrawal and collateral withdrawal.
+     * @param amount The amount of tokens to withdraw. Use `COLLATERAL_BALANCE` for all.
+     * @param token The ERC20 token to withdraw.
+     * @param to The address that will receive the withdrawn tokens.
+     * @param comet The Compound III instance.
+     * @return withdrawn The actual amount of tokens withdrawn.
+     */
     function withdraw(uint256 amount, IERC20 token, address to, IComet comet) public returns (uint256 withdrawn) {
         if (amount == COLLATERAL_BALANCE) amount = collateralBalance(address(this), token, comet);
         if (amount == 0) return 0;
@@ -89,11 +123,25 @@ contract CometMoneyMarket {
         }
     }
 
+    /**
+     * @notice Gets the debt balance of an account in a Compound III instance.
+     * @param account The account to query.
+     * @param token The base token of the instance.
+     * @param comet The Compound III instance.
+     * @return The current debt balance.
+     */
     function debtBalance(address account, IERC20 token, IComet comet) public view returns (uint256) {
         require(address(token) == address(comet.baseToken()), InvalidAsset(token));
         return comet.borrowBalanceOf(account);
     }
 
+    /**
+     * @notice Gets the collateral balance of an account in a Compound III instance.
+     * @param account The account to query.
+     * @param token The collateral token of the instance.
+     * @param comet The Compound III instance.
+     * @return The current collateral balance.
+     */
     function collateralBalance(address account, IERC20 token, IComet comet) public view returns (uint256) {
         require(address(token) != address(comet.baseToken()), InvalidAsset(token));
         return comet.collateralBalanceOf(account, token);
