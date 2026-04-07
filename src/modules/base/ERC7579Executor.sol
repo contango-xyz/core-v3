@@ -24,10 +24,6 @@ abstract contract ERC7579Executor is ERC7579Module {
         ACTION_EXECUTOR = _actionExecutor;
     }
 
-    function actionExecutor() external view returns (ActionExecutor) {
-        return ACTION_EXECUTOR;
-    }
-
     function isModuleType(uint256 moduleTypeId) public pure virtual override returns (bool) {
         return moduleTypeId == MODULE_TYPE_EXECUTOR;
     }
