@@ -265,7 +265,9 @@ contract MorphoMoneyMarket {
 
     /**
      * @notice Reads the current oracle price for a market.
-     * @param marketParams The Morpho market parameters.
+     * @param token The token to quote.
+     * @param marketId The Morpho market identifier.
+     * @param morpho The Morpho Blue contract.
      * @return The oracle price scaled by Morpho's oracle unit.
      */
     function oraclePrice(IERC20 token, MorphoMarketId marketId, IMorpho morpho) public view returns (uint256) {

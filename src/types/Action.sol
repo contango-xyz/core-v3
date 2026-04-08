@@ -30,10 +30,8 @@ library PackedActionLib {
 
     /**
      * @notice Unpacks an encoded action payload.
-     * @param action The encoded action bytes.
-     * @return target The target contract address.
-     * @return value The native value to forward.
-     * @return data The calldata payload.
+     * @param packedAction The encoded packed action payload.
+     * @return action_ The unpacked action struct.
      */
     function unpack(PackedAction calldata packedAction) internal pure returns (Action memory action_) {
         action_.target = address(bytes20(packedAction.data[:20]));

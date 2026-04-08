@@ -83,9 +83,11 @@ contract PreSignedValidator is ERC7579StatelessValidator {
 
     /**
      * @notice Computes the pre-signed hash for an operation.
-     * @param hash The operation hash to sign.
      * @param account The account authorizing the hash.
-     * @return The digest used for signature validation.
+     * @param hash The operation hash to sign.
+     * @param permanent Whether to store the approval permanently in local storage.
+     * @param signed Whether the hash should be marked as signed or revoked.
+     * @return changed True when the signed state was updated.
      */
     function _sign(address account, bytes32 hash, bool permanent, bool signed) private returns (bool changed) {
         if (_isHashSigned(account, hash) == signed) return false;

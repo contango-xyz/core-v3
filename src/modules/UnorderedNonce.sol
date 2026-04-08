@@ -9,22 +9,16 @@ abstract contract UnorderedNonce {
 
     error InvalidNonce();
 
-    /// @notice A map from token owner address and a caller specified word index to a bitmap. Used to set bits in the bitmap to prevent against signature replay protection
-    /// @dev Uses unordered nonces so that permit messages do not need to be spent in a certain order
-    /// @dev The mapping is indexed first by the token owner, then by an index specified in the nonce
-    /// @dev It returns a uint256 bitmap
-    /// @dev The index, or wordPosition is capped at type(uint248).max
-
+    /**
+     * @notice Stores nonce usage bitmaps per account and bitmap word.
+     * @dev The first key is the account and the second key is the bitmap word index.
+     *      Each bit in the stored uint256 represents whether a nonce has been used.
+     */
     mapping(address account => mapping(uint256 wordPos => uint256 bitPos)) public nonceBitmap;
 
-    /// @notice Returns the index of the bitmap and the bit position within the bitmap. Used for unordered nonces
-    /// @param nonce The nonce to get the associated word and bit positions
-    /// @return wordPos The word position or index into the nonceBitmap
-    /// @return bitPos The bit position
-    /// @dev The first 248 bits of the nonce value is the index of the desired bitmap
-    /// @dev The last 8 bits of the nonce value is the position of the bit in the bitmap
     /**
      * @notice Returns the index of the bitmap and the bit position within the bitmap for a given nonce.
+     * @dev The first 248 bits represent the bitmap index and the last 8 bits represent the bit position.
      * @param nonce The nonce to get the associated word and bit positions.
      * @return wordPos The word position or index into the nonceBitmap.
      * @return bitPos The bit position.
@@ -34,9 +28,6 @@ abstract contract UnorderedNonce {
         bitPos = nonce & type(uint8).max;
     }
 
-    /// @notice Checks whether a nonce is taken and sets the bit at the bit position in the bitmap at the word position
-    /// @param from The address to use the nonce at
-    /// @param nonce The nonce to spend
     /**
      * @notice Checks whether a nonce is taken and sets the bit in the bitmap.
      * @dev Reverts if the nonce has already been used.
@@ -51,10 +42,6 @@ abstract contract UnorderedNonce {
 
     // ================================ Extra code by Contango ================================
 
-    /// @notice Checks whether a nonce is taken
-    /// @param from The address to check the nonce for
-    /// @param nonce The nonce to check
-    /// @return wasUsed Whether the nonce was used
     /**
      * @notice Checks whether a nonce has already been used.
      * @param from The address to check the nonce for.
@@ -67,10 +54,12 @@ abstract contract UnorderedNonce {
         return nonceBitmap[from][wordPos] & bit != 0;
     }
 
-    /// @notice Checks whether a nonce has already been used.
-    /// @param from The address to check the nonce for.
-    /// @param nonce The nonce to check.
-    /// @return wasUsed True if the nonce was used, false otherwise.
+    /**
+     * @notice Checks whether a nonce has already been used.
+     * @param from The address to check the nonce for.
+     * @param nonce The nonce to check.
+     * @return wasUsed True if the nonce was used, false otherwise.
+     */
     function wasNonceUsed(address from, uint256 nonce) external view returns (bool wasUsed) {
         return _wasNonceUsed(from, nonce);
     }
