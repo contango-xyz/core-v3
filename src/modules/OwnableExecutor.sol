@@ -11,8 +11,8 @@ import { ActionResult, PackedAction } from "../types/Action.sol";
 
 interface OwnableExecutorEvents {
 
-    event OwnerAdded(IERC7579Execution account, address owner);
-    event OwnerRemoved(IERC7579Execution account, address owner);
+    event OwnerAdded(IERC7579Execution indexed account, address indexed owner);
+    event OwnerRemoved(IERC7579Execution indexed account, address indexed owner);
 
 }
 
