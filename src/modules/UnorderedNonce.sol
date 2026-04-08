@@ -44,11 +44,9 @@ abstract contract UnorderedNonce {
      * @param nonce The nonce to spend.
      */
     function _useUnorderedNonce(address from, uint256 nonce) internal {
+        if (_wasNonceUsed(from, nonce)) revert InvalidNonce();
         (uint256 wordPos, uint256 bitPos) = bitmapPositions(nonce);
-        uint256 bit = uint256(1) << bitPos;
-        uint256 flipped = nonceBitmap[from][wordPos] ^= bit;
-
-        if (flipped & bit == 0) revert InvalidNonce();
+        nonceBitmap[from][wordPos] |= uint256(1) << bitPos;
     }
 
     // ================================ Extra code by Contango ================================
@@ -67,6 +65,14 @@ abstract contract UnorderedNonce {
         (uint256 wordPos, uint256 bitPos) = bitmapPositions(nonce);
         uint256 bit = uint256(1) << bitPos;
         return nonceBitmap[from][wordPos] & bit != 0;
+    }
+
+    /// @notice Checks whether a nonce has already been used
+    /// @param from The address to check the nonce for
+    /// @param nonce The nonce to check
+    /// @return wasUsed True if the nonce was used, false otherwise
+    function wasNonceUsed(address from, uint256 nonce) external view returns (bool wasUsed) {
+        return _wasNonceUsed(from, nonce);
     }
 
     /// @notice Uses a nonce

@@ -266,6 +266,21 @@ contract ERC1271ExecutorTest is BaseTest {
         erc1271Executor.execute(account, address(target), abi.encodeCall(MockTarget.setValue, (42)), signature, nonce);
     }
 
+    function test_WasNonceUsedGetter() public {
+        MockTarget target = new MockTarget();
+        bytes memory accountData = address(target).encodeSingle(0, abi.encodeCall(MockTarget.setValue, (42)));
+        bytes32 hash = erc1271Executor.digest(IERC7579Execution(account), accountData, ERC1271Executor.execute.selector, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, hash.toEthSignedMessageHash());
+        bytes memory signature = abi.encodePacked(ownableValidator, r, s, v);
+
+        assertFalse(erc1271Executor.wasNonceUsed(address(account), nonce));
+
+        vm.prank(caller);
+        erc1271Executor.execute(account, address(target), abi.encodeCall(MockTarget.setValue, (42)), signature, nonce);
+
+        assertTrue(erc1271Executor.wasNonceUsed(address(account), nonce));
+    }
+
 }
 
 // Helper contracts
