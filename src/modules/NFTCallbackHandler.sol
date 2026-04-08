@@ -63,6 +63,11 @@ contract NFTCallbackHandler is ERC7579Module, IERC721Receiver, IERC1155Receiver 
         return moduleTypeId == MODULE_TYPE_FALLBACK;
     }
 
+    /**
+     * @notice Checks whether an interface is supported.
+     * @param interfaceId The ERC-165 interface identifier.
+     * @return True when the interface is supported.
+     */
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
         return interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
             || interfaceId == type(IERC1155Receiver).interfaceId;

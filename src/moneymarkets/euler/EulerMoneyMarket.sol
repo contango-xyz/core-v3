@@ -128,6 +128,10 @@ contract EulerMoneyMarket {
         return vault.collateralBalanceOf(account);
     }
 
+    /**
+     * @notice Reads the current oracle price for a vault.
+     * @return The quoted price from Euler's perspective.
+     */
     function oraclePrice(IERC20 asset, IEulerVault vault) public view returns (uint256) {
         vault.validateAsset(asset);
         IERC20 unitOfAccount = vault.unitOfAccount();
@@ -135,6 +139,10 @@ contract EulerMoneyMarket {
         return vault.oracle().getQuote(asset.unit(), asset, unitOfAccount);
     }
 
+    /**
+     * @notice Returns the oracle precision unit for a vault.
+     * @return The oracle unit used to scale prices.
+     */
     function oracleUnit(IEulerVault vault) public view returns (uint256) {
         IERC20 unitOfAccount = vault.unitOfAccount();
         return address(unitOfAccount) == address(USD) ? WAD : unitOfAccount.unit();
@@ -211,6 +219,10 @@ contract EulerMoneyMarket {
 
 library EulerMoneyMarketLib {
 
+    /**
+     * @notice Reads the vault supply index.
+     * @return The current interest accrual index for suppliers.
+     */
     function supplyIndex(IEulerVault vault) internal view returns (uint256) {
         uint256 shares = vault.totalSupply();
         if (shares == 0) return 0;

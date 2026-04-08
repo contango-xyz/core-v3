@@ -263,6 +263,11 @@ contract MorphoMoneyMarket {
         return position.supplyShares.toAssetsDown(market.totalSupplyAssets, market.totalSupplyShares);
     }
 
+    /**
+     * @notice Reads the current oracle price for a market.
+     * @param marketParams The Morpho market parameters.
+     * @return The oracle price scaled by Morpho's oracle unit.
+     */
     function oraclePrice(IERC20 token, MorphoMarketId marketId, IMorpho morpho) public view returns (uint256) {
         MarketParams memory marketParams = morpho.idToMarketParams(marketId);
 
@@ -334,6 +339,11 @@ library MorphoMoneyMarketLib {
         return supplyIndex(morpho.market(marketId));
     }
 
+    /**
+     * @notice Returns the oracle unit used by the market's oracle.
+     * @param marketParams The Morpho market parameters.
+     * @return The oracle precision unit.
+     */
     function oracleUnit(MarketParams memory marketParams) internal view returns (uint256) {
         uint256 priceDecimals = ORACLE_PRICE_DECIMALS + marketParams.loanToken.decimals() - marketParams.collateralToken.decimals();
         return 10 ** priceDecimals;

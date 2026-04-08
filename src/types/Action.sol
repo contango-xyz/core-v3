@@ -28,6 +28,13 @@ library PackedActionLib {
 
     uint256 internal constant CALL_DATA_OFFSET = 34;
 
+    /**
+     * @notice Unpacks an encoded action payload.
+     * @param action The encoded action bytes.
+     * @return target The target contract address.
+     * @return value The native value to forward.
+     * @return data The calldata payload.
+     */
     function unpack(PackedAction calldata packedAction) internal pure returns (Action memory action_) {
         action_.target = address(bytes20(packedAction.data[:20]));
         action_.value = uint96(bytes12(packedAction.data[20:32]));

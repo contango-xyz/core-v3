@@ -81,6 +81,12 @@ contract PreSignedValidator is ERC7579StatelessValidator {
         return IS_SIGNED.readAddressBytes32BoolMapping(account, hash) || _isSigned[account][hash];
     }
 
+    /**
+     * @notice Computes the pre-signed hash for an operation.
+     * @param hash The operation hash to sign.
+     * @param account The account authorizing the hash.
+     * @return The digest used for signature validation.
+     */
     function _sign(address account, bytes32 hash, bool permanent, bool signed) private returns (bool changed) {
         if (_isHashSigned(account, hash) == signed) return false;
 

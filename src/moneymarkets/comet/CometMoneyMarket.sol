@@ -148,6 +148,10 @@ contract CometMoneyMarket {
         return comet.collateralBalanceOf(account, token);
     }
 
+    /**
+     * @notice Reads the current base asset oracle price.
+     * @return The oracle price returned by Comet.
+     */
     function oraclePrice(IERC20 token, IComet comet) public view returns (uint256) {
         address feed =
             address(comet.baseToken()) == address(token) ? comet.baseTokenPriceFeed() : comet.getAssetInfoByAddress(token).priceFeed;
@@ -162,6 +166,10 @@ contract CometMoneyMarket {
         return address(token) == address(comet.baseToken()) ? comet.getSupplyRate(comet.getUtilization()) : 0;
     }
 
+    /**
+     * @notice Reads the current variable borrow rate.
+     * @return The per-second borrow rate from Comet.
+     */
     function borrowRate(IERC20 token, IComet comet) public view returns (uint256) {
         require(address(token) == address(comet.baseToken()), InvalidAsset(token));
         return comet.getBorrowRate(comet.getUtilization());

@@ -64,11 +64,19 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
         return accountOwners[account].values();
     }
 
+    /**
+     * @notice Adds an owner to the owner set.
+     * @param owner The owner to add.
+     */
     function _addOwner(IERC7579Execution account, address owner) private {
         if (!accountOwners[account].add(owner)) return;
         emit OwnerAdded(account, owner);
     }
 
+    /**
+     * @notice Removes an owner from the owner set.
+     * @param owner The owner to remove.
+     */
     function _removeOwner(IERC7579Execution account, address owner) private {
         if (!accountOwners[account].remove(owner)) return;
         emit OwnerRemoved(account, owner);

@@ -67,16 +67,14 @@ abstract contract UnorderedNonce {
         return nonceBitmap[from][wordPos] & bit != 0;
     }
 
-    /// @notice Checks whether a nonce has already been used
-    /// @param from The address to check the nonce for
-    /// @param nonce The nonce to check
-    /// @return wasUsed True if the nonce was used, false otherwise
+    /// @notice Checks whether a nonce has already been used.
+    /// @param from The address to check the nonce for.
+    /// @param nonce The nonce to check.
+    /// @return wasUsed True if the nonce was used, false otherwise.
     function wasNonceUsed(address from, uint256 nonce) external view returns (bool wasUsed) {
         return _wasNonceUsed(from, nonce);
     }
 
-    /// @notice Uses a nonce
-    /// @param nonce The nonce to use
     /**
      * @notice Uses a nonce for the caller.
      * @param nonce The nonce to use.

@@ -59,6 +59,13 @@ contract SwapAction {
         emit SwapExecuted(swap.tokenToSell, swap.tokenToBuy, amountIn_, amountOut_);
     }
 
+    /**
+     * @notice Executes a sequence of swaps.
+     * @dev Uses the output amount of each swap as the input amount for the next swap.
+     * @param swaps The ordered list of swaps to execute.
+     * @return amountIn_ The amount sold in the first swap.
+     * @return amountOut_ The amount bought in the last swap.
+     */
     function executeSwaps(Swap[] memory swaps) public returns (uint256 amountIn_, uint256 amountOut_) {
         require(swaps.length > 0, EmptySwapArray());
 
@@ -70,6 +77,14 @@ contract SwapAction {
         emit SwapExecuted(swaps[0].tokenToSell, swaps[swaps.length - 1].tokenToBuy, amountIn_, amountOut_);
     }
 
+    /**
+     * @notice Executes a single swap operation.
+     * @dev Approves `swap.spender`, performs the router call, and verifies the output amount.
+     * @param swap The swap configuration.
+     * @param amountInArg The input amount to execute with (or chained output from a previous swap).
+     * @return amountIn_ The actual amount sold.
+     * @return amountOut_ The actual amount bought.
+     */
     function _executeSwap(Swap memory swap, uint256 amountInArg) internal returns (uint256 amountIn_, uint256 amountOut_) {
         amountIn_ = amountInArg = _amountIn(swap, amountInArg);
         swap.tokenToSell.forceApprove(swap.spender, amountInArg);
@@ -84,6 +99,13 @@ contract SwapAction {
         emit SwapPartExecuted(swap.tokenToSell, swap.tokenToBuy, amountIn_, amountOut_, swap.spotMarketName);
     }
 
+    /**
+     * @notice Resolves and injects the input amount into swap calldata.
+     * @dev Replaces bytes at each configured offset in `swap.swapBytes` with the resolved amount.
+     * @param swap The swap configuration.
+     * @param amountInArg The requested input amount.
+     * @return amountIn_ The resolved input amount used for execution.
+     */
     function _amountIn(Swap memory swap, uint256 amountInArg) internal view returns (uint256 amountIn_) {
         amountIn_ = amountInArg == ACCOUNT_BALANCE ? swap.tokenToSell.myBalance() : amountInArg;
         require(amountIn_ == swap.amountIn || swap.offsets.length > 0, OffsetsRequired());

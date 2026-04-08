@@ -112,6 +112,12 @@ library ERC20Lib {
         return _transferOut(token, payer, to, amount);
     }
 
+    /**
+     * @notice Transfers token funds out to a recipient.
+     * @param token The token to transfer.
+     * @param to The transfer recipient.
+     * @param amount The amount to transfer.
+     */
     function _transferOut(IERC20 token, address payer, address to, uint256 amount) internal returns (uint256 amountTransferred) {
         payer == address(this) ? token.safeTransfer(to, amount) : token.safeTransferFrom(payer, to, amount);
         return amount;
