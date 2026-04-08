@@ -42,7 +42,7 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
     }
 
     function _onlyOwner(IERC7579Execution account) private view {
-        require(accountOwners[account].contains(msg.sender), Unauthorized(account, msg.sender));
+        require(isOwner(account, msg.sender), Unauthorized(account, msg.sender));
     }
 
     /**
@@ -51,7 +51,7 @@ contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
      * @param owner The address to check for ownership.
      * @return True if the address is an owner, false otherwise.
      */
-    function isOwner(IERC7579Execution account, address owner) external view returns (bool) {
+    function isOwner(IERC7579Execution account, address owner) public view returns (bool) {
         return accountOwners[account].contains(owner);
     }
 
