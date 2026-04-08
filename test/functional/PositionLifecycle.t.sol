@@ -163,7 +163,7 @@ contract CometPositionLifecycleTest is AbstractPositionLifecycleTest {
     }
 
     function _supplyToMarket(Action[] storage actions, uint256 amount) internal virtual override {
-        actions.push(address(cometMoneyMarket).delegateAction(abi.encodeCall(CometMoneyMarket.supply, (amount, base, comet))));
+        actions.push(address(cometMoneyMarket).delegateAction(abi.encodeCall(CometMoneyMarket.supplyCollateral, (amount, base, comet))));
     }
 
     function _borrowFromMarket(Action[] storage actions, uint256 amount) internal virtual override {
@@ -178,7 +178,8 @@ contract CometPositionLifecycleTest is AbstractPositionLifecycleTest {
 
     function _withdrawFromMarket(Action[] storage actions, uint256 amount) internal virtual override {
         actions.push(
-            address(cometMoneyMarket).delegateAction(abi.encodeCall(CometMoneyMarket.withdraw, (amount, base, holdingAccount, comet)))
+            address(cometMoneyMarket)
+                .delegateAction(abi.encodeCall(CometMoneyMarket.withdrawCollateral, (amount, base, holdingAccount, comet)))
         );
     }
 

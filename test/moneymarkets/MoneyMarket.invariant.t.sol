@@ -374,7 +374,7 @@ contract CometMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
     }
 
     function supply(uint256 amount) external view returns (Action memory) {
-        return cometMoneyMarket.delegateAction(abi.encodeCall(CometMoneyMarket.supply, (amount, base, comet)));
+        return cometMoneyMarket.delegateAction(abi.encodeCall(CometMoneyMarket.supplyCollateral, (amount, base, comet)));
     }
 
     function borrow(uint256 amount) external view returns (Action memory) {
@@ -386,7 +386,7 @@ contract CometMoneyMarketInvariantTest is AbstractMoneyMarketInvariantTest {
     }
 
     function withdraw(uint256 amount) external view returns (Action memory) {
-        return cometMoneyMarket.delegateAction(abi.encodeCall(CometMoneyMarket.withdraw, (amount, base, account, comet)));
+        return cometMoneyMarket.delegateAction(abi.encodeCall(CometMoneyMarket.withdrawCollateral, (amount, base, account, comet)));
     }
 
     function prices() external view returns (uint256 collateral, uint256 debt, uint256 unit) {
