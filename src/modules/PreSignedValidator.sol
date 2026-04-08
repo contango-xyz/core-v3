@@ -55,15 +55,15 @@ contract PreSignedValidator is ERC7579StatelessValidator {
     }
 
     function validateUserOp(PackedUserOperation calldata userOp, bytes32 userOpHash) external view override returns (uint256) {
-        return isSigned(userOp.sender, userOpHash) ? VALIDATION_SUCCESS : VALIDATION_FAILED;
+        return _isHashSigned(userOp.sender, userOpHash) ? VALIDATION_SUCCESS : VALIDATION_FAILED;
     }
 
     function isValidSignatureWithSender(address, bytes32 hash, bytes calldata) external view override returns (bytes4) {
-        return isSigned(msg.sender, hash) ? IERC1271.isValidSignature.selector : EIP_1271_VALIDATION_FAILED;
+        return _isHashSigned(msg.sender, hash) ? IERC1271.isValidSignature.selector : EIP_1271_VALIDATION_FAILED;
     }
 
     function validateSignatureWithData(bytes32 hash, bytes calldata, bytes calldata data) external view override returns (bool) {
-        return isSigned(abi.decode(data, (address)), hash);
+        return _isHashSigned(abi.decode(data, (address)), hash);
     }
 
     /**
@@ -73,12 +73,16 @@ contract PreSignedValidator is ERC7579StatelessValidator {
      * @param hash The hash to check.
      * @return True if the hash is approved, false otherwise.
      */
-    function isSigned(address account, bytes32 hash) public view returns (bool) {
+    function isSigned(address account, bytes32 hash) external view returns (bool) {
+        return _isHashSigned(account, hash);
+    }
+
+    function _isHashSigned(address account, bytes32 hash) private view returns (bool) {
         return IS_SIGNED.readAddressBytes32BoolMapping(account, hash) || _isSigned[account][hash];
     }
 
-    function _sign(address account, bytes32 hash, bool permanent, bool signed) internal returns (bool changed) {
-        if (isSigned(account, hash) == signed) return false;
+    function _sign(address account, bytes32 hash, bool permanent, bool signed) private returns (bool changed) {
+        if (_isHashSigned(account, hash) == signed) return false;
 
         if (permanent) _isSigned[account][hash] = signed;
         else IS_SIGNED.writeAddressBytes32BoolMapping(account, hash, signed);
