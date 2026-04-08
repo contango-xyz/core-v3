@@ -177,15 +177,17 @@ contract AaveMoneyMarket is IFlashLoanReceiver {
         uint256 loans = assets.length;
 
         uint256[] memory shares = new uint256[](loans);
+        uint256[] memory interestRateModes = new uint256[](loans);
         for (uint256 i = 0; i < loans; i++) {
             shares[i] = pool.debtShares(assets[i]);
+            interestRateModes[i] = uint8(DataTypes.InterestRateMode.VARIABLE);
         }
 
         pool.flashLoan({
             receiverAddress: SELF,
             assets: assets,
             amounts: amounts,
-            interestRateModes: uint8(DataTypes.InterestRateMode.VARIABLE).uint256s(),
+            interestRateModes: interestRateModes,
             onBehalfOf: address(this),
             params: data,
             referralCode: 0
