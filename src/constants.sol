@@ -6,6 +6,7 @@ import { UD60x18 } from "@prb/math/UD60x18.sol";
 uint256 constant ACCOUNT_BALANCE = type(uint256).max;
 uint256 constant DEBT_BALANCE = type(uint256).max - 1;
 uint256 constant COLLATERAL_BALANCE = type(uint256).max - 2;
+uint256 constant SUPPLIED_BALANCE = type(uint256).max - 3;
 
 bytes4 constant EIP_1271_VALIDATION_FAILED = 0xFFFFFFFF;
 uint256 constant MODULE_TYPE_STATELESS_VALIDATOR = 7;

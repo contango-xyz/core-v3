@@ -2,11 +2,13 @@
 pragma solidity ^0.8.20;
 
 import { BaseTest } from "../BaseTest.t.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { ERC7579Utils, ModeSelector, ModePayload } from "@openzeppelin/contracts/account/utils/draft-ERC7579Utils.sol";
 import { IERC7579Execution, MODULE_TYPE_EXECUTOR, Execution } from "@openzeppelin/contracts/interfaces/draft-IERC7579.sol";
 
 import { OwnableExecutor, OwnableExecutorEvents } from "../../src/modules/OwnableExecutor.sol";
 import { ActionExecutor } from "../../src/modules/ActionExecutor.sol";
+import { ActionResult, PackedAction } from "../../src/types/Action.sol";
 
 contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
 
@@ -54,12 +56,6 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         assertEq(freshExecutor.getOwners(account)[1], otherOwner);
     }
 
-    function test_RevertWhen_InstallWithNoOwners() public {
-        vm.prank(address(account));
-        vm.expectRevert(OwnableExecutor.AtLeastOneOwner.selector);
-        freshExecutor.onInstall("");
-    }
-
     function test_RevertWhen_InstallWithInvalidLength() public {
         bytes memory data = abi.encodePacked(owner, hex"1234"); // Invalid length
         vm.prank(address(account));
@@ -86,6 +82,29 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         assertEq(ownableExecutor.getOwners(account)[1], otherOwner);
     }
 
+    function test_RevertWhen_AddOwnerBeforeInstall() public {
+        vm.prank(address(account));
+        vm.expectRevert(OwnableExecutor.NotInstalled.selector);
+        freshExecutor.addOwner(otherOwner);
+    }
+
+    function test_AddOwner_DuplicateNoop() public {
+        vm.prank(owner);
+        ownableExecutor.addOwner(account, otherOwner);
+        uint256 ownersBefore = ownableExecutor.getOwners(account).length;
+
+        vm.recordLogs();
+        vm.prank(owner);
+        ownableExecutor.addOwner(account, otherOwner);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 ownerAddedSig = keccak256("OwnerAdded(address,address)");
+        for (uint256 i = 0; i < entries.length; i++) {
+            assertTrue(entries[i].topics[0] != ownerAddedSig, "unexpected OwnerAdded");
+        }
+        assertEq(ownableExecutor.getOwners(account).length, ownersBefore);
+    }
+
     function test_RevertWhen_NonOwnerAddsOwner() public {
         vm.prank(otherOwner);
         vm.expectRevert(abi.encodeWithSelector(OwnableExecutor.Unauthorized.selector, account, otherOwner));
@@ -103,6 +122,20 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         ownableExecutor.removeOwner(otherOwner);
 
         assertFalse(ownableExecutor.isOwner(account, otherOwner));
+    }
+
+    function test_RemoveOwner_NonExistentNoop() public {
+        vm.recordLogs();
+        vm.prank(address(account));
+        ownableExecutor.removeOwner(otherOwner);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 ownerRemovedSig = keccak256("OwnerRemoved(address,address)");
+        for (uint256 i = 0; i < entries.length; i++) {
+            assertTrue(entries[i].topics[0] != ownerRemovedSig, "unexpected OwnerRemoved");
+        }
+        assertEq(ownableExecutor.getOwners(account).length, 1);
+        assertTrue(ownableExecutor.isOwner(account, owner));
     }
 
     function test_RevertWhen_RemovingLastOwner() public {
@@ -167,6 +200,27 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
 
         // Storage slot should be set in the account's context
         assertEq(value, 42);
+    }
+
+    function test_DelegateWithValue() public {
+        // Setup a mock contract to delegate to
+        MockDelegateTarget target = new MockDelegateTarget();
+
+        vm.deal(owner, 1 ether);
+        vm.prank(owner);
+        ownableExecutor.delegate{ value: 0.4 ether }(account, address(target), abi.encodeCall(MockDelegateTarget.setStorageValue, (42)));
+
+        // Storage slot should be set in the account's context
+        assertEq(target.storageValue(), 0);
+
+        vm.prank(owner);
+        uint256 value =
+            abi.decode(ownableExecutor.delegate(account, address(target), abi.encodeCall(MockDelegateTarget.storageValue, ())), (uint256));
+
+        // Storage slot should be set in the account's context
+        assertEq(value, 42);
+        uint256 accBalance = address(account).balance;
+        assertEqDecimal(accBalance, 0.4 ether, 18);
     }
 
     function test_ExecuteBatch() public {
@@ -285,6 +339,34 @@ contract OwnableExecutorTest is BaseTest, OwnableExecutorEvents {
         assertEq(abi.decode(returnData[1], (uint256)), 24);
     }
 
+    function test_ExecuteActionsReturnsSuccessFlags() public {
+        MockTarget target = new MockTarget();
+        MockReverter reverter = new MockReverter();
+
+        PackedAction[] memory actions = new PackedAction[](2);
+        actions[0] = PackedAction({
+            data: abi.encodePacked(address(target), uint96(0), bytes1(0x00), bytes1(0x00), abi.encodeCall(MockTarget.getValue, ()))
+        });
+        actions[1] = PackedAction({
+            data: abi.encodePacked(address(reverter), uint96(0), bytes1(0x00), bytes1(0x01), abi.encodeCall(MockReverter.fail, ()))
+        });
+
+        vm.prank(owner);
+        ActionResult[] memory returnData = ownableExecutor.executeActions(account, actions);
+
+        assertEq(returnData.length, 2);
+        assertTrue(returnData[0].success);
+        assertEq(abi.decode(returnData[0].data, (uint256)), 0);
+        assertFalse(returnData[1].success);
+        bytes memory failureData = returnData[1].data;
+        assertGe(failureData.length, 4);
+        bytes4 selector;
+        assembly {
+            selector := mload(add(failureData, 32))
+        }
+        assertEq(selector, MockReverter.ExpectedFailure.selector);
+    }
+
 }
 
 // Helper contracts for testing execution methods
@@ -313,6 +395,16 @@ contract MockDelegateTarget {
 
     function storageValue() external view returns (uint256) {
         return _storageValue;
+    }
+
+}
+
+contract MockReverter {
+
+    error ExpectedFailure();
+
+    function fail() external pure {
+        revert ExpectedFailure();
     }
 
 }

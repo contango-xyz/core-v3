@@ -16,6 +16,7 @@ import { toArray } from "../../libraries/Arrays.sol";
 import { MathLib } from "../../libraries/MathLib.sol";
 import { BytesLib } from "../../libraries/BytesLib.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract AaveMoneyMarket is IFlashLoanReceiver {
 
     using ERC20Lib for IERC20;
@@ -29,6 +30,13 @@ contract AaveMoneyMarket is IFlashLoanReceiver {
     event AaveRepay(IPool indexed pool, IERC20 indexed token, uint256 amount, uint256 shares, uint256 index);
     event AaveWithdraw(IPool indexed pool, IERC20 indexed token, uint256 amount, uint256 shares, uint256 index, address to);
 
+    /**
+     * @notice Supplies tokens to an Aave V3 pool.
+     * @param amount The amount of tokens to supply. Use `ACCOUNT_BALANCE` for the entire balance.
+     * @param token The ERC20 token to supply.
+     * @param pool The Aave V3 pool.
+     * @return supplied The actual amount of tokens supplied.
+     */
     function supply(uint256 amount, IERC20 token, IPool pool) public returns (uint256 supplied) {
         if (amount == ACCOUNT_BALANCE) amount = token.myBalance();
         if (amount == 0) return 0;
@@ -44,6 +52,14 @@ contract AaveMoneyMarket is IFlashLoanReceiver {
         emit AaveSupply(pool, token, supplied, sharesAfter - sharesBefore, pool.collateralIndex(token));
     }
 
+    /**
+     * @notice Borrows tokens from an Aave V3 pool using variable interest rate.
+     * @param amount The amount of tokens to borrow.
+     * @param token The ERC20 token to borrow.
+     * @param to The address that will receive the borrowed tokens.
+     * @param pool The Aave V3 pool.
+     * @return borrowed The actual amount of tokens borrowed.
+     */
     function borrow(uint256 amount, IERC20 token, address to, IPool pool) public returns (uint256 borrowed) {
         if (amount == 0) return 0;
 
@@ -63,6 +79,13 @@ contract AaveMoneyMarket is IFlashLoanReceiver {
         emit AaveBorrow(pool, token, borrowed, sharesAfter - sharesBefore, pool.debtIndex(token), to);
     }
 
+    /**
+     * @notice Repays a variable rate borrow on an Aave V3 pool.
+     * @param amount The amount of tokens to repay. Use `ACCOUNT_BALANCE` or `DEBT_BALANCE`.
+     * @param token The ERC20 token to repay.
+     * @param pool The Aave V3 pool.
+     * @return repaid The actual amount of tokens repaid.
+     */
     function repay(uint256 amount, IERC20 token, IPool pool) public returns (uint256 repaid) {
         if (amount == ACCOUNT_BALANCE) amount = token.myBalance();
         uint256 debt = debtBalance(address(this), token, pool);
@@ -81,6 +104,14 @@ contract AaveMoneyMarket is IFlashLoanReceiver {
         emit AaveRepay(pool, token, repaid, sharesBefore - sharesAfter, pool.debtIndex(token));
     }
 
+    /**
+     * @notice Withdraws tokens from an Aave V3 pool.
+     * @param amount The amount of tokens to withdraw. Use `COLLATERAL_BALANCE` for all.
+     * @param token The ERC20 token to withdraw.
+     * @param to The address that will receive the withdrawn tokens.
+     * @param pool The Aave V3 pool.
+     * @return withdrawn The actual amount of tokens withdrawn.
+     */
     function withdraw(uint256 amount, IERC20 token, address to, IPool pool) public returns (uint256 withdrawn) {
         if (amount == COLLATERAL_BALANCE) amount = type(uint256).max;
         if (amount == 0) return 0;
@@ -120,23 +151,43 @@ contract AaveMoneyMarket is IFlashLoanReceiver {
 
     // =============================== Flash Borrowing ===============================
 
+    /**
+     * @notice Performs a flash borrow of a single asset from Aave V3.
+     * @dev This uses Aave's flash loan mechanism with the `VARIABLE` interest rate mode.
+     * If the caller has enough collateral, the borrowed amount is treated as a debt rather than requiring upfront repayment.
+     * @param asset The token to borrow.
+     * @param amount The amount to borrow.
+     * @param data Arbitrary data to be passed to the callback.
+     * @param pool The Aave V3 pool.
+     */
     function flashBorrow(IERC20 asset, uint256 amount, bytes calldata data, IPool pool) public {
         flashBorrowMany(toArray(asset), amount.uint256s(), data, pool);
     }
 
+    /**
+     * @notice Performs a flash borrow of multiple assets from Aave V3.
+     * @dev This uses Aave's flash loan mechanism with the `VARIABLE` interest rate mode for all assets.
+     * If the caller has enough collateral, the borrowed amounts are treated as debt.
+     * @param assets The array of tokens to borrow.
+     * @param amounts The array of amounts to borrow.
+     * @param data Arbitrary data to be passed to the callback.
+     * @param pool The Aave V3 pool.
+     */
     function flashBorrowMany(IERC20[] memory assets, uint256[] memory amounts, bytes calldata data, IPool pool) public {
         uint256 loans = assets.length;
 
         uint256[] memory shares = new uint256[](loans);
+        uint256[] memory interestRateModes = new uint256[](loans);
         for (uint256 i = 0; i < loans; i++) {
             shares[i] = pool.debtShares(assets[i]);
+            interestRateModes[i] = uint8(DataTypes.InterestRateMode.VARIABLE);
         }
 
         pool.flashLoan({
             receiverAddress: SELF,
             assets: assets,
             amounts: amounts,
-            interestRateModes: uint8(DataTypes.InterestRateMode.VARIABLE).uint256s(),
+            interestRateModes: interestRateModes,
             onBehalfOf: address(this),
             params: data,
             referralCode: 0
@@ -148,6 +199,17 @@ contract AaveMoneyMarket is IFlashLoanReceiver {
         }
     }
 
+    /**
+     * @notice Callback for Aave V3 multi-token flash loans.
+     * @dev Executes any additional actions via `data.functionCall()`.
+     * @dev The data layout expected is [20 bytes target contract + X bytes calldata].
+     * @dev This is inherently safe as it is validated by the account's executor.
+     * @param assets The borrowed tokens.
+     * @param amounts The borrowed amounts.
+     * @param initiator The address that initiated the flash loan.
+     * @param data Arbitrary data passed to the callback.
+     * @return True if successful.
+     */
     function executeOperation(
         IERC20[] calldata assets,
         uint256[] calldata amounts,
