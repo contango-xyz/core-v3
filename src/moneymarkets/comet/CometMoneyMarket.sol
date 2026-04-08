@@ -9,6 +9,7 @@ import { ACCOUNT_BALANCE, DEBT_BALANCE, COLLATERAL_BALANCE } from "../../constan
 import { ERC20Lib } from "../../libraries/ERC20Lib.sol";
 import { IComet } from "./dependencies/IComet.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract CometMoneyMarket {
 
     using ERC20Lib for IERC20;

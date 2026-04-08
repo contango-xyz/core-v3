@@ -8,6 +8,7 @@ import { ACCOUNT_BALANCE } from "../constants.sol";
 import { ERC20Lib, EIP2098Permit } from "../libraries/ERC20Lib.sol";
 import { IWETH9 } from "../dependencies/IWETH9.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract TokenAction {
 
     using ERC20Lib for *;

@@ -5,6 +5,7 @@ import { ERC20Lib, IERC20, Address } from "../libraries/ERC20Lib.sol";
 import { BytesLib } from "../libraries/BytesLib.sol";
 import { ACCOUNT_BALANCE } from "../constants.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract SwapAction {
 
     using ERC20Lib for IERC20;

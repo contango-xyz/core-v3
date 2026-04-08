@@ -5,6 +5,7 @@ import { MODULE_TYPE_HOOK, IERC7579Hook } from "@openzeppelin/contracts/interfac
 
 import { ERC7579Module } from "./ERC7579Module.sol";
 
+/// @custom:security-contact security@contango.xyz
 abstract contract ERC7579Hook is ERC7579Module, IERC7579Hook {
 
     function isModuleType(uint256 moduleTypeId) external pure override returns (bool) {

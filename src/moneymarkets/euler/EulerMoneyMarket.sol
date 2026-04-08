@@ -10,6 +10,7 @@ import { IEthereumVaultConnector } from "./dependencies/IEthereumVaultConnector.
 import { IEulerVault } from "./dependencies/IEulerVault.sol";
 import { BytesLib } from "../../libraries/BytesLib.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract EulerMoneyMarket {
 
     using ERC20Lib for IERC20;

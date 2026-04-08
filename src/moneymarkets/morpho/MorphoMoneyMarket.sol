@@ -10,6 +10,7 @@ import { IMorpho, MorphoMarketId, Market, Position, MarketParams } from "./depen
 import { SharesMathLib } from "./dependencies/SharesMathLib.sol";
 import { MathLib } from "../../libraries/MathLib.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract MorphoMoneyMarket {
 
     using ERC20Lib for IERC20;

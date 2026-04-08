@@ -9,6 +9,7 @@ import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Rec
 import { ERC7579Module } from "./base/ERC7579Module.sol";
 import { BytesLib } from "../libraries/BytesLib.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract NFTCallbackHandler is ERC7579Module, IERC721Receiver, IERC1155Receiver {
 
     using BytesLib for bytes;

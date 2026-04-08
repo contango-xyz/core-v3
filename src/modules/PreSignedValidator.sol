@@ -12,6 +12,7 @@ import { ERC7579StatelessValidator } from "./base/ERC7579StatelessValidator.sol"
 import { EIP_1271_VALIDATION_FAILED } from "../constants.sol";
 import { TempStorage, TempStorageKey } from "../libraries/TempStorage.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract PreSignedValidator is ERC7579StatelessValidator {
 
     event HashSigned(address indexed account, bytes32 indexed hash);

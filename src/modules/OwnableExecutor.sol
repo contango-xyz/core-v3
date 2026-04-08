@@ -16,6 +16,7 @@ interface OwnableExecutorEvents {
 
 }
 
+/// @custom:security-contact security@contango.xyz
 contract OwnableExecutor is ERC7579Executor, OwnableExecutorEvents {
 
     using EnumerableSet for EnumerableSet.AddressSet;

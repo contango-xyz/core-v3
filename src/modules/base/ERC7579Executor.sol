@@ -10,6 +10,7 @@ import { ERC7579Module } from "./ERC7579Module.sol";
 import { ERC7579Lib } from "./ERC7579Utils.sol";
 import { ActionResult, PackedAction } from "../../types/Action.sol";
 
+/// @custom:security-contact security@contango.xyz
 abstract contract ERC7579Executor is ERC7579Module {
 
     using Address for *;

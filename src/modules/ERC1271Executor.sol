@@ -12,6 +12,7 @@ import { ERC7579Executor } from "./base/ERC7579Executor.sol";
 import { ERC7579Lib } from "./base/ERC7579Utils.sol";
 import { ActionResult, PackedAction } from "../types/Action.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract ERC1271Executor is EIP712, ERC7579Executor, UnorderedNonce {
 
     using Address for *;

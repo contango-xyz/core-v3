@@ -25,6 +25,7 @@ import { IEulerVault } from "../moneymarkets/euler/dependencies/IEulerVault.sol"
 import { IEulerFlashLoan } from "../moneymarkets/euler/dependencies/IEulerFlashLoan.sol";
 import { IPendleMarketSwapCallback, IPendleMarketV3 } from "../dependencies/dex/Pendle.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract FlashLoanAction is
     IERC3156FlashBorrower,
     IFlashLoanSimpleReceiver,

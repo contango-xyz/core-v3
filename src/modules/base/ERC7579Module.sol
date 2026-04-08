@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import { IERC7579Module } from "@openzeppelin/contracts/interfaces/draft-IERC7579.sol";
 
+/// @custom:security-contact security@contango.xyz
 abstract contract ERC7579Module is IERC7579Module {
 
     event ModuleInstalled(address indexed account, bytes data);

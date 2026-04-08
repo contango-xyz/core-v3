@@ -20,6 +20,7 @@ interface IERC7579StatelessValidator is IERC7579Validator {
 
 }
 
+/// @custom:security-contact security@contango.xyz
 abstract contract ERC7579StatelessValidator is ERC7579Module, IERC7579StatelessValidator {
 
     function isModuleType(uint256 moduleTypeId) external pure virtual override returns (bool) {

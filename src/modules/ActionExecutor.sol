@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import { Action, ActionResult, PackedAction } from "../types/Action.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract ActionExecutor {
 
     error DelegateCallWithValue();

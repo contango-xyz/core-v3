@@ -16,6 +16,7 @@ import { toArray } from "../../libraries/Arrays.sol";
 import { MathLib } from "../../libraries/MathLib.sol";
 import { BytesLib } from "../../libraries/BytesLib.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract AaveMoneyMarket is IFlashLoanReceiver {
 
     using ERC20Lib for IERC20;

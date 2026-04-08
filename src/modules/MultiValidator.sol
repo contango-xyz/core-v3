@@ -16,6 +16,7 @@ struct MultiSignature {
     bytes signature;
 }
 
+/// @custom:security-contact security@contango.xyz
 contract MultiValidator is ERC7579StatelessValidator {
 
     uint256 public constant MAX_INTENTS = 10;
