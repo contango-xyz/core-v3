@@ -129,7 +129,8 @@ contract PositionMigrationTest is BaseTest {
                 .delegateAction(abi.encodeCall(AaveMoneyMarket.withdraw, (ACCOUNT_BALANCE, wstETH, holdingAccount1, pool)))
         );
         actions1.push(
-            address(morphoMoneyMarket).delegateAction(abi.encodeCall(MorphoMoneyMarket.supply, (ACCOUNT_BALANCE, wstETH, marketId, morpho)))
+            address(morphoMoneyMarket)
+                .delegateAction(abi.encodeCall(MorphoMoneyMarket.supplyCollateral, (ACCOUNT_BALANCE, wstETH, marketId, morpho)))
         );
         actions1.push(
             address(morphoMoneyMarket)
@@ -203,7 +204,8 @@ contract PositionMigrationTest is BaseTest {
                 .delegateAction(abi.encodeCall(AaveMoneyMarket.withdraw, (ACCOUNT_BALANCE, wstETH, holdingAccount2, pool)))
         );
         actions2.push(
-            address(morphoMoneyMarket).delegateAction(abi.encodeCall(MorphoMoneyMarket.supply, (ACCOUNT_BALANCE, wstETH, marketId, morpho)))
+            address(morphoMoneyMarket)
+                .delegateAction(abi.encodeCall(MorphoMoneyMarket.supplyCollateral, (ACCOUNT_BALANCE, wstETH, marketId, morpho)))
         );
         actions2.push(
             address(morphoMoneyMarket)

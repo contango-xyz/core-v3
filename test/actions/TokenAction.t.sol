@@ -370,18 +370,24 @@ contract TokenActionTest is Test, PermitSigner {
 
     function test_depositNative_zeroAmount() public {
         uint256 initialBalance = weth.balanceOf(user1);
+        uint256 initialWalletBalance = address(wallet).balance;
 
-        wallet.delegate{ value: 0 }(address(tokenAction), abi.encodeCall(TokenAction.depositNative, (0, user1)));
+        bytes memory returnData = wallet.delegate{ value: 0 }(address(tokenAction), abi.encodeCall(TokenAction.depositNative, (0, user1)));
 
+        assertEq(abi.decode(returnData, (uint256)), 0);
         assertEq(weth.balanceOf(user1), initialBalance);
+        assertEq(address(wallet).balance, initialWalletBalance);
     }
 
     function test_withdrawNative_zeroAmount() public {
         uint256 initialBalance = user1.balance;
+        uint256 initialWethBalance = weth.balanceOf(address(wallet));
 
-        wallet.delegate(address(tokenAction), abi.encodeCall(TokenAction.withdrawNative, (0, payable(user1))));
+        bytes memory returnData = wallet.delegate(address(tokenAction), abi.encodeCall(TokenAction.withdrawNative, (0, payable(user1))));
 
+        assertEq(abi.decode(returnData, (uint256)), 0);
         assertEq(user1.balance, initialBalance);
+        assertEq(weth.balanceOf(address(wallet)), initialWethBalance);
     }
 
     // ========== REVERT TESTS ==========

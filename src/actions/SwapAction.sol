@@ -5,6 +5,7 @@ import { ERC20Lib, IERC20, Address } from "../libraries/ERC20Lib.sol";
 import { BytesLib } from "../libraries/BytesLib.sol";
 import { ACCOUNT_BALANCE } from "../constants.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract SwapAction {
 
     using ERC20Lib for IERC20;
@@ -20,6 +21,19 @@ contract SwapAction {
     error EmptySwapArray();
     error OffsetsRequired();
 
+    /**
+     * @notice Data for a single swap execution.
+     * @param tokenToSell The asset to be sold.
+     * @param amountIn The amount to sell. Use `ACCOUNT_BALANCE` for the entire balance.
+     * @param tokenToBuy The asset to be bought.
+     * @param minAmountOut The minimum acceptable amount of tokens to buy.
+     * @param router The address to call for the swap (e.g., Uniswap router).
+     * @param spender The address to approve `tokenToSell` for (usually the same as `router`).
+     * @param swapBytes The encoded calldata for the `router` call.
+     * @param spotMarketName A human-readable name for the market (for logging).
+     * @param offsets Byte offsets in `swapBytes` where the `amountIn` should be injected.
+     * @dev See `SwapAction.t.sol` for encoding examples.
+     */
     struct Swap {
         IERC20 tokenToSell;
         uint256 amountIn;
@@ -32,11 +46,26 @@ contract SwapAction {
         uint256[] offsets;
     }
 
+    /**
+     * @notice Executes a single swap.
+     * @dev Injects `swap.amountIn` into `swap.swapBytes` at the specified `offsets` before calling the router.
+     * @param swap The swap configuration.
+     * @return amountIn_ The actual amount sold.
+     * @return amountOut_ The actual amount bought.
+     * @custom:example `executeSwap(Swap({ ..., swapBytes: abi.encodeCall(Router.swap, (...)), offsets: [4+32] }))`
+     */
     function executeSwap(Swap memory swap) public returns (uint256 amountIn_, uint256 amountOut_) {
         (amountIn_, amountOut_) = _executeSwap(swap, swap.amountIn);
         emit SwapExecuted(swap.tokenToSell, swap.tokenToBuy, amountIn_, amountOut_);
     }
 
+    /**
+     * @notice Executes a sequence of swaps.
+     * @dev Uses the output amount of each swap as the input amount for the next swap.
+     * @param swaps The ordered list of swaps to execute.
+     * @return amountIn_ The amount sold in the first swap.
+     * @return amountOut_ The amount bought in the last swap.
+     */
     function executeSwaps(Swap[] memory swaps) public returns (uint256 amountIn_, uint256 amountOut_) {
         require(swaps.length > 0, EmptySwapArray());
 
@@ -48,11 +77,20 @@ contract SwapAction {
         emit SwapExecuted(swaps[0].tokenToSell, swaps[swaps.length - 1].tokenToBuy, amountIn_, amountOut_);
     }
 
+    /**
+     * @notice Executes a single swap operation.
+     * @dev Approves `swap.spender`, performs the router call, and verifies the output amount.
+     * @param swap The swap configuration.
+     * @param amountInArg The input amount to execute with (or chained output from a previous swap).
+     * @return amountIn_ The actual amount sold.
+     * @return amountOut_ The actual amount bought.
+     */
     function _executeSwap(Swap memory swap, uint256 amountInArg) internal returns (uint256 amountIn_, uint256 amountOut_) {
         amountIn_ = amountInArg = _amountIn(swap, amountInArg);
         swap.tokenToSell.forceApprove(swap.spender, amountInArg);
 
         uint256 balanceBefore = swap.tokenToBuy.myBalance();
+        // Executes the swap by calling the `router` with the encoded `swapBytes`.
         swap.router.functionCall(swap.swapBytes);
         amountOut_ = swap.tokenToBuy.myBalance() - balanceBefore;
 
@@ -61,6 +99,13 @@ contract SwapAction {
         emit SwapPartExecuted(swap.tokenToSell, swap.tokenToBuy, amountIn_, amountOut_, swap.spotMarketName);
     }
 
+    /**
+     * @notice Resolves and injects the input amount into swap calldata.
+     * @dev Replaces bytes at each configured offset in `swap.swapBytes` with the resolved amount.
+     * @param swap The swap configuration.
+     * @param amountInArg The requested input amount.
+     * @return amountIn_ The resolved input amount used for execution.
+     */
     function _amountIn(Swap memory swap, uint256 amountInArg) internal view returns (uint256 amountIn_) {
         amountIn_ = amountInArg == ACCOUNT_BALANCE ? swap.tokenToSell.myBalance() : amountInArg;
         require(amountIn_ == swap.amountIn || swap.offsets.length > 0, OffsetsRequired());

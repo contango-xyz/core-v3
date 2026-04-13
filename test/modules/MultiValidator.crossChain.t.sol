@@ -70,11 +70,13 @@ contract MultiValidatorCrossChainTest is BaseTest {
         {
             vm.selectFork(ethereumFork);
             bytes memory accountData1 = address(targetEthereum).encodeSingle(0, callData1);
-            bytes32 digest1 = erc1271Executor.digest(IERC7579Execution(rootAccountEthereum), accountData1, nonce + 1);
+            bytes32 digest1 =
+                erc1271Executor.digest(IERC7579Execution(rootAccountEthereum), accountData1, ERC1271Executor.execute.selector, nonce + 1);
 
             vm.selectFork(baseFork);
             bytes memory accountData2 = address(targetBase).encodeSingle(0, callData2);
-            bytes32 digest2 = erc1271Executor.digest(IERC7579Execution(rootAccountBase), accountData2, nonce + 2);
+            bytes32 digest2 =
+                erc1271Executor.digest(IERC7579Execution(rootAccountBase), accountData2, ERC1271Executor.execute.selector, nonce + 2);
 
             // Signing from a third chain for the sake of it
             vm.createSelectFork("arbitrum", 440_349_333);

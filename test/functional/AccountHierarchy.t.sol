@@ -8,6 +8,7 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
 import { IERC7579Execution } from "@openzeppelin/contracts/interfaces/draft-IERC7579.sol";
 
 import { TokenAction } from "../../src/actions/TokenAction.sol";
+import { ERC1271Executor } from "../../src/modules/ERC1271Executor.sol";
 import { ERC7579Lib } from "../../src/modules/base/ERC7579Utils.sol";
 
 import { PortoAccountWithPk, KeyType } from "../dependencies/Porto.sol";
@@ -57,7 +58,7 @@ contract AccountHierarchyTest is BaseTest {
 
         bytes memory accountData = target.encodeDelegate(data);
         uint256 nonce = 0;
-        bytes32 digest = erc1271Executor.digest(IERC7579Execution(child), accountData, nonce);
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(child), accountData, ERC1271Executor.delegate.selector, nonce);
 
         bytes memory parentSignature = parent.sign(digest);
 
@@ -78,7 +79,7 @@ contract AccountHierarchyTest is BaseTest {
 
         bytes memory accountData = target.encodeDelegate(data);
         uint256 nonce = 0;
-        bytes32 digest = erc1271Executor.digest(IERC7579Execution(grandChild), accountData, nonce);
+        bytes32 digest = erc1271Executor.digest(IERC7579Execution(grandChild), accountData, ERC1271Executor.delegate.selector, nonce);
 
         bytes memory grandParentSignature = parent.sign(digest.toEthSignedMessageHash());
 

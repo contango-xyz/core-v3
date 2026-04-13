@@ -1,41 +1,61 @@
 //SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.20;
 
-import { Action, PackedAction } from "../types/Action.sol";
+import { Action, ActionResult, PackedAction } from "../types/Action.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract ActionExecutor {
 
     error DelegateCallWithValue();
     error InsufficientBalance();
     error ActionFailed(Action action, bytes reason);
 
-    function executeSingle(Action memory action) public returns (bytes memory result) {
-        bool success;
+    /**
+     * @notice Executes a single action (call or delegatecall).
+     * @param action The action struct containing target, value, data, and flags.
+     * @return result The execution result.
+     */
+    function executeSingle(Action memory action) public returns (ActionResult memory result) {
         if (action.delegateCall) {
             require(action.value == 0, DelegateCallWithValue());
-            (success, result) = action.target.delegatecall(action.data);
+            (result.success, result.data) = action.target.delegatecall(action.data);
         } else {
             require(action.value == 0 || address(this).balance >= action.value, InsufficientBalance());
-            (success, result) = action.target.call{ value: action.value }(action.data);
+            (result.success, result.data) = action.target.call{ value: action.value }(action.data);
         }
 
-        require(success || action.allowFailure, ActionFailed(action, result));
+        require(result.success || action.allowFailure, ActionFailed(action, result.data));
     }
 
-    function executeSinglePacked(PackedAction calldata packedAction) public returns (bytes memory result) {
+    /**
+     * @notice Executes a single packed action (call or delegatecall).
+     * @param packedAction The packed action data.
+     * @return result The execution result.
+     */
+    function executeSinglePacked(PackedAction calldata packedAction) public returns (ActionResult memory result) {
         return executeSingle(packedAction.unpack());
     }
 
-    function executeBatch(Action[] calldata actions) public returns (bytes[] memory results) {
-        results = new bytes[](actions.length);
+    /**
+     * @notice Executes a batch of actions sequentially.
+     * @param actions The array of action structs.
+     * @return results The array of execution results.
+     */
+    function executeBatch(Action[] calldata actions) public returns (ActionResult[] memory results) {
+        results = new ActionResult[](actions.length);
 
         for (uint256 i = 0; i < actions.length; i++) {
             results[i] = executeSingle(actions[i]);
         }
     }
 
-    function executeBatchPacked(PackedAction[] calldata packedActions) public returns (bytes[] memory results) {
-        results = new bytes[](packedActions.length);
+    /**
+     * @notice Executes a batch of packed actions sequentially.
+     * @param packedActions The array of packed action data.
+     * @return results The array of execution results.
+     */
+    function executeBatchPacked(PackedAction[] calldata packedActions) public returns (ActionResult[] memory results) {
+        results = new ActionResult[](packedActions.length);
 
         for (uint256 i = 0; i < packedActions.length; i++) {
             results[i] = executeSinglePacked(packedActions[i]);

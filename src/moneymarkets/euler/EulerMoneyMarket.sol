@@ -10,6 +10,7 @@ import { IEthereumVaultConnector } from "./dependencies/IEthereumVaultConnector.
 import { IEulerVault } from "./dependencies/IEulerVault.sol";
 import { BytesLib } from "../../libraries/BytesLib.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract EulerMoneyMarket {
 
     using ERC20Lib for IERC20;
@@ -28,6 +29,13 @@ contract EulerMoneyMarket {
 
     address private immutable SELF = address(this);
 
+    /**
+     * @notice Supplies tokens to an Euler vault.
+     * @param amount The amount of tokens to supply. Use `ACCOUNT_BALANCE` for the entire balance.
+     * @param asset The ERC20 token to supply (must match the vault's asset).
+     * @param vault The Euler vault.
+     * @return supplied The actual amount of tokens supplied.
+     */
     function supply(uint256 amount, IERC20 asset, IEulerVault vault) public returns (uint256 supplied) {
         vault.validateAsset(asset);
         if (amount == ACCOUNT_BALANCE) amount = asset.myBalance();
@@ -40,6 +48,14 @@ contract EulerMoneyMarket {
         emit EulerSupply(vault, asset, supplied, shares, vault.supplyIndex());
     }
 
+    /**
+     * @notice Borrows tokens from an Euler vault.
+     * @param amount The amount of tokens to borrow.
+     * @param asset The ERC20 token to borrow (must match the vault's asset).
+     * @param to The address that will receive the borrowed tokens.
+     * @param vault The Euler vault.
+     * @return borrowed The actual amount of tokens borrowed.
+     */
     function borrow(uint256 amount, IERC20 asset, address to, IEulerVault vault) public returns (uint256 borrowed) {
         vault.validateAsset(asset);
         if (amount == 0) return 0;
@@ -49,6 +65,13 @@ contract EulerMoneyMarket {
         emit EulerBorrow(vault, asset, borrowed, vault.interestAccumulator(), to);
     }
 
+    /**
+     * @notice Repays a borrow on an Euler vault.
+     * @param amount The amount of tokens to repay. Use `ACCOUNT_BALANCE` or `DEBT_BALANCE`.
+     * @param asset The ERC20 token to repay.
+     * @param vault The Euler vault.
+     * @return repaid The actual amount of tokens repaid.
+     */
     function repay(uint256 amount, IERC20 asset, IEulerVault vault) public returns (uint256 repaid) {
         vault.validateAsset(asset);
         if (amount == ACCOUNT_BALANCE) amount = asset.myBalance();
@@ -62,6 +85,14 @@ contract EulerMoneyMarket {
         emit EulerRepay(vault, asset, repaid, vault.interestAccumulator());
     }
 
+    /**
+     * @notice Withdraws tokens from an Euler vault.
+     * @param amount The amount of tokens to withdraw. Use `COLLATERAL_BALANCE` for all.
+     * @param asset The ERC20 token to withdraw.
+     * @param to The address that will receive the withdrawn tokens.
+     * @param vault The Euler vault.
+     * @return withdrawn The actual amount of tokens withdrawn.
+     */
     function withdraw(uint256 amount, IERC20 asset, address to, IEulerVault vault) public returns (uint256 withdrawn) {
         vault.validateAsset(asset);
         if (amount == COLLATERAL_BALANCE) amount = vault.collateralBalanceOf(address(this));
@@ -73,16 +104,34 @@ contract EulerMoneyMarket {
         emit EulerWithdraw(vault, asset, withdrawn, shares, vault.supplyIndex(), to);
     }
 
+    /**
+     * @notice Gets the debt balance of an account in an Euler vault.
+     * @param account The account to query.
+     * @param asset The asset of the vault.
+     * @param vault The Euler vault.
+     * @return The current debt balance.
+     */
     function debtBalance(address account, IERC20 asset, IEulerVault vault) public view returns (uint256) {
         vault.validateAsset(asset);
         return vault.debtOf(account);
     }
 
+    /**
+     * @notice Gets the collateral balance of an account in an Euler vault.
+     * @param account The account to query.
+     * @param asset The asset of the vault.
+     * @param vault The Euler vault.
+     * @return The current collateral balance.
+     */
     function collateralBalance(address account, IERC20 asset, IEulerVault vault) public view returns (uint256) {
         vault.validateAsset(asset);
         return vault.collateralBalanceOf(account);
     }
 
+    /**
+     * @notice Reads the current oracle price for a vault.
+     * @return The quoted price from Euler's perspective.
+     */
     function oraclePrice(IERC20 asset, IEulerVault vault) public view returns (uint256) {
         vault.validateAsset(asset);
         IERC20 unitOfAccount = vault.unitOfAccount();
@@ -90,6 +139,10 @@ contract EulerMoneyMarket {
         return vault.oracle().getQuote(asset.unit(), asset, unitOfAccount);
     }
 
+    /**
+     * @notice Returns the oracle precision unit for a vault.
+     * @return The oracle unit used to scale prices.
+     */
     function oracleUnit(IEulerVault vault) public view returns (uint256) {
         IERC20 unitOfAccount = vault.unitOfAccount();
         return address(unitOfAccount) == address(USD) ? WAD : unitOfAccount.unit();
@@ -105,6 +158,15 @@ contract EulerMoneyMarket {
 
     // =============================== Flash Borrowing ===============================
 
+    /**
+     * @notice Performs a flash borrow from an Euler vault using the Ethereum Vault Connector (EVC).
+     * @dev Executes a `batch` call on the EVC that borrows from the vault and then executes arbitrary data.
+     * @dev The `data` layout expected is [20 bytes target + X bytes callData].
+     * @param evc The Ethereum Vault Connector contract.
+     * @param vault The Euler vault to borrow from.
+     * @param amount The amount to borrow.
+     * @param data Encoded data for the callback [0:20 bytes target, 20:+ bytes callData].
+     */
     function flashBorrow(IEthereumVaultConnector evc, IEulerVault vault, uint256 amount, bytes calldata data) public {
         address account = address(this);
 
@@ -124,6 +186,15 @@ contract EulerMoneyMarket {
         emit EulerFlashBorrow(vault, vault.asset(), amount, account);
     }
 
+    /**
+     * @notice Performs a flash withdrawal from an Euler vault using the Ethereum Vault Connector (EVC).
+     * @dev Executes a `batch` call on the EVC that withdraws from the vault and then executes arbitrary data.
+     * @dev The `data` layout expected is [20 bytes target + X bytes callData].
+     * @param evc The Ethereum Vault Connector contract.
+     * @param vault The Euler vault to withdraw from.
+     * @param amount The amount to withdraw. Use `COLLATERAL_BALANCE` for all.
+     * @param data Encoded data for the callback [0:20 bytes target, 20:+ bytes callData].
+     */
     function flashWithdraw(IEthereumVaultConnector evc, IEulerVault vault, uint256 amount, bytes calldata data) public {
         address account = address(this);
         if (amount == COLLATERAL_BALANCE) amount = vault.collateralBalanceOf(account);
@@ -148,6 +219,10 @@ contract EulerMoneyMarket {
 
 library EulerMoneyMarketLib {
 
+    /**
+     * @notice Reads the vault supply index.
+     * @return The current interest accrual index for suppliers.
+     */
     function supplyIndex(IEulerVault vault) internal view returns (uint256) {
         uint256 shares = vault.totalSupply();
         if (shares == 0) return 0;

@@ -12,6 +12,7 @@ import { ERC7579StatelessValidator } from "./base/ERC7579StatelessValidator.sol"
 import { EIP_1271_VALIDATION_FAILED } from "../constants.sol";
 import { TempStorage, TempStorageKey } from "../libraries/TempStorage.sol";
 
+/// @custom:security-contact security@contango.xyz
 contract PreSignedValidator is ERC7579StatelessValidator {
 
     event HashSigned(address indexed account, bytes32 indexed hash);
@@ -25,14 +26,32 @@ contract PreSignedValidator is ERC7579StatelessValidator {
         return moduleTypeId == MODULE_TYPE_VALIDATOR;
     }
 
-    function approveHash(bytes32 hash, bool permanent) external {
-        _sign(msg.sender, hash, permanent, true);
+    /**
+     * @notice Approves a message hash for a given account.
+     * @dev If `permanent` is set to true, the approval is stored in persistent state.
+     * If `permanent` is set to false, it's stored in transient storage for the current transaction.
+     * @param hash The hash to approve.
+     * @param permanent Whether to store the approval permanently.
+     * @return changed True if the signed state changed, false if it was already approved.
+     */
+    function approveHash(bytes32 hash, bool permanent) external returns (bool changed) {
+        changed = _sign(msg.sender, hash, permanent, true);
+        if (!changed) return false;
         emit HashSigned(msg.sender, hash);
+        return true;
     }
 
-    function revokeHash(bytes32 hash, bool permanent) external {
-        _sign(msg.sender, hash, permanent, false);
+    /**
+     * @notice Revokes a previously approved hash.
+     * @param hash The hash to revoke.
+     * @param permanent Whether the revocation is for persistent or transient state.
+     * @return changed True if the signed state changed, false if it was already revoked.
+     */
+    function revokeHash(bytes32 hash, bool permanent) external returns (bool changed) {
+        changed = _sign(msg.sender, hash, permanent, false);
+        if (!changed) return false;
         emit HashRevoked(msg.sender, hash);
+        return true;
     }
 
     function validateUserOp(PackedUserOperation calldata userOp, bytes32 userOpHash) external view override returns (uint256) {
@@ -47,13 +66,31 @@ contract PreSignedValidator is ERC7579StatelessValidator {
         return isSigned(abi.decode(data, (address)), hash);
     }
 
+    /**
+     * @notice Checks whether a hash has been approved for a given account.
+     * @dev Considers both transient and persistent approval states.
+     * @param account The account to check for.
+     * @param hash The hash to check.
+     * @return True if the hash is approved, false otherwise.
+     */
     function isSigned(address account, bytes32 hash) public view returns (bool) {
         return IS_SIGNED.readAddressBytes32BoolMapping(account, hash) || _isSigned[account][hash];
     }
 
-    function _sign(address account, bytes32 hash, bool permanent, bool signed) internal {
+    /**
+     * @notice Computes the pre-signed hash for an operation.
+     * @param account The account authorizing the hash.
+     * @param hash The operation hash to sign.
+     * @param permanent Whether to store the approval permanently in local storage.
+     * @param signed Whether the hash should be marked as signed or revoked.
+     * @return changed True when the signed state was updated.
+     */
+    function _sign(address account, bytes32 hash, bool permanent, bool signed) private returns (bool changed) {
+        if (isSigned(account, hash) == signed) return false;
+
         if (permanent) _isSigned[account][hash] = signed;
         else IS_SIGNED.writeAddressBytes32BoolMapping(account, hash, signed);
+        return true;
     }
 
 }
